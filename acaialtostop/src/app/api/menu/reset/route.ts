@@ -22,10 +22,6 @@ async function connectDB() {
     if (!cached.promise) {
         const opts = {
             bufferCommands: false,
-        };
-
-        const opts = {
-            bufferCommands: false,
             dbName: MONGODB_DB,
         };
 
