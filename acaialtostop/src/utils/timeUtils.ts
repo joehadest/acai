@@ -1,3 +1,5 @@
+// src/utils/timeUtils.ts
+
 /**
  * Utilitários para verificação de horários do estabelecimento
  */
@@ -25,23 +27,26 @@ export interface BusinessHoursConfig {
 export function getCurrentTimeUTC(): string {
     const now = new Date();
     // Usar toLocaleTimeString com fuso horário específico do Brasil
-    return now.toLocaleTimeString('pt-BR', { 
-        hour12: false, 
-        hour: '2-digit', 
+    return now.toLocaleTimeString('pt-BR', {
+        hour12: false,
+        hour: '2-digit',
         minute: '2-digit',
         timeZone: 'America/Sao_Paulo'
     });
 }
 
 /**
- * Obtém o dia da semana atual em inglês
+ * Obtém o dia da semana atual em inglês, baseado no fuso horário de São Paulo
  * @returns string representando o dia da semana
  */
 export function getCurrentDayOfWeek(): string {
     const now = new Date();
-    const dayOfWeek = now.getDay();
-    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    return days[dayOfWeek];
+    // Usa toLocaleDateString para obter o dia da semana no fuso correto
+    const dayOfWeekString = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        timeZone: 'America/Sao_Paulo'
+    });
+    return dayOfWeekString.toLowerCase();
 }
 
 /**
@@ -55,7 +60,8 @@ export function isRestaurantOpen(businessHours: BusinessHoursConfig): boolean {
     
     const todayHours = businessHours[currentDay as keyof BusinessHoursConfig];
     
-    if (!todayHours || !todayHours.open) {
+    // VERIFICAÇÃO ADICIONADA: Garante que o dia está configurado, marcado como aberto e com horários de início e fim.
+    if (!todayHours || !todayHours.open || !todayHours.start || !todayHours.end) {
         return false;
     }
     
@@ -73,6 +79,9 @@ export function getRestaurantStatus(businessHours: BusinessHoursConfig) {
     const now = new Date();
     
     const todayHours = businessHours[currentDay as keyof BusinessHoursConfig];
+
+    // VERIFICAÇÃO ADICIONADA: Checa se os horários de início e fim estão presentes.
+    const areHoursComplete = todayHours && typeof todayHours.start === 'string' && typeof todayHours.end === 'string';
     
     return {
         currentTime,
@@ -80,10 +89,11 @@ export function getRestaurantStatus(businessHours: BusinessHoursConfig) {
         localTime: now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
         utcTime: now.toISOString(),
         todayHours,
-        isOpen: todayHours?.open && currentTime >= todayHours.start && currentTime <= todayHours.end,
+        isOpen: todayHours?.open && areHoursComplete && currentTime >= todayHours.start && currentTime <= todayHours.end,
         reason: !todayHours ? 'Dia não configurado' : 
                 !todayHours.open ? 'Dia marcado como fechado' :
+                !areHoursComplete ? 'Horário incompleto' : // Motivo correto para o seu log
                 currentTime < todayHours.start ? 'Ainda não abriu' :
                 currentTime > todayHours.end ? 'Já fechou' : 'Aberto'
     };
-} 
+}

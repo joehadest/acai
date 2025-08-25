@@ -1,7 +1,10 @@
+// src/contexts/CartContext.tsx
+
 'use client';
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { MenuItem } from '../types/menu';
 import { CartItem, CartContextType } from '../types/cart';
+import { calculateItemPrice } from '../utils/priceCalculator'; // Importa a função centralizada
 import { menuItems } from '../data/menu';
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -10,58 +13,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([]);
 
     const addToCart = (item: MenuItem, quantity: number, observation?: string, size?: string, border?: string, extras?: string[]) => {
+        // Usa a função centralizada para obter o preço unitário correto.
+        const allPizzas = menuItems.filter(i => i.category === 'pizzas');
+        const finalPrice = calculateItemPrice(item, size, border, extras, observation, allPizzas);
+
+        // Verifica se um item idêntico (com as mesmas opções) já existe no carrinho.
         const existingItemIndex = items.findIndex(
             cartItem => cartItem.item._id === item._id &&
                 cartItem.size === size &&
                 cartItem.border === border &&
-                JSON.stringify(cartItem.extras) === JSON.stringify(extras) &&
+                JSON.stringify(cartItem.extras?.sort()) === JSON.stringify(extras?.sort()) &&
                 cartItem.observation === observation
         );
 
-        let price = item.price;
-        if ((item.category === 'pizzas' || item.category === 'massas') && size && item.sizes) {
-            const sizeKey = size as keyof typeof item.sizes;
-            price = item.sizes[sizeKey] || price;
-
-            if (item.category === 'pizzas') {
-            if (observation && observation.includes('Meio a meio:')) {
-                const meioAMeioText = observation.split('Meio a meio:')[1];
-                // Remove observações adicionais após o slash (como "- Sem cebola")
-                const cleanMeioAMeioText = meioAMeioText.split(' - ')[0];
-                const [sabor1, sabor2] = cleanMeioAMeioText.split('/').map(s => s.trim());
-                const pizzas = menuItems.filter((p: MenuItem) => p.category === 'pizzas');
-                const pizza1 = pizzas.find((p: MenuItem) => p.name === sabor1);
-                const pizza2 = pizzas.find((p: MenuItem) => p.name === sabor2);
-
-                if (pizza1 && pizza2) {
-                    const price1 = pizza1.sizes ? pizza1.sizes[sizeKey] || pizza1.price : pizza1.price;
-                    const price2 = pizza2.sizes ? pizza2.sizes[sizeKey] || pizza2.price : pizza2.price;
-                    price = Math.max(price1, price2);
-                }
-            }
-
-            if (border && item.borderOptions) {
-                const borderPrice = sizeKey === 'G' ? 8.00 : 4.00;
-                price += borderPrice;
-            }
-            if (extras && item.extraOptions) {
-                extras.forEach(extra => {
-                    const extraPrice = item.extraOptions![extra];
-                    if (extraPrice) {
-                        price += extraPrice;
-                    }
-                });
-                }
-            }
-        }
-
         if (existingItemIndex > -1) {
+            // Se já existe, apenas aumenta a quantidade.
             const updatedItems = [...items];
             updatedItems[existingItemIndex].quantity += quantity;
             setItems(updatedItems);
         } else {
+            // Se não existe, adiciona como um novo item com o preço já calculado.
             const newItem: CartItem = {
-                _id: item._id,
+                _id: `${item._id}-${Date.now()}`, // ID único para o item no carrinho
                 item,
                 quantity,
                 observation,
@@ -69,7 +42,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 border,
                 extras,
                 name: item.name,
-                price
+                price: finalPrice // Armazena o preço final correto.
             };
             setItems([...items, newItem]);
         }
@@ -82,10 +55,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const updateQuantity = (itemId: string, quantity: number) => {
         setItems(prevItems =>
             prevItems.map(item =>
-                item._id === itemId
+                item._id === itemId && quantity > 0
                     ? { ...item, quantity }
                     : item
-            )
+            ).filter(item => item.quantity > 0)
         );
     };
 
@@ -106,4 +79,4 @@ export function useCart() {
         throw new Error('useCart must be used within a CartProvider');
     }
     return context;
-} 
+}

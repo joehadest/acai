@@ -1,3 +1,5 @@
+// src/components/AdminOrders.tsx
+
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { FaShareAlt } from 'react-icons/fa';
@@ -122,41 +124,38 @@ export default function AdminOrders() {
             pedido.formaPagamento === 'cartao' ? 'Cartão' : 'Dinheiro';
 
         const troco = pedido.formaPagamento === 'dinheiro' && pedido.troco ?
-            `\nTroco: R$ ${pedido.troco}` : '';
+            `\nTroco para: R$ ${pedido.troco}` : '';
 
         const taxaEntrega = pedido.endereco?.deliveryFee ?
-            `\nTaxa de Entrega: R$ ${pedido.endereco.deliveryFee}` : '';
+            `\nTaxa de Entrega: R$ ${pedido.endereco.deliveryFee.toFixed(2)}` : '';
 
         const itensFormatados = pedido.itens.map(item => {
-            let itemStr = `${item.nome}`;
-            if (item.size) itemStr += ` (${item.size})`;
-            itemStr += ` x${item.quantidade}`;
-            if (item.border) itemStr += `\nBorda: ${item.border}`;
-            if (item.extras && item.extras.length > 0) itemStr += `\nExtras: ${item.extras.join(', ')}`;
-            if (item.observacao) itemStr += `\nObs: ${item.observacao}`;
-            itemStr += ` - R$ ${(item.preco * item.quantidade).toFixed(2)}`;
+            let itemStr = `*${item.quantidade}x ${item.nome}*`;
+            if (item.size) itemStr += `\n  - Tamanho: ${item.size}`;
+            if (item.border) itemStr += `\n  - Borda: ${item.border}`;
+            if (item.extras && item.extras.length > 0) itemStr += `\n  - Extras: ${item.extras.join(', ')}`;
+            if (item.observacao) itemStr += `\n  - Obs: ${item.observacao}`;
+            itemStr += `\n  - Valor: R$ ${(item.preco * item.quantidade).toFixed(2)}`;
             return itemStr;
         }).join('\n\n');
 
-        const subtotal = pedido.itens.reduce((total, item) => total + (item.preco * item.quantidade), 0);
-        const total = subtotal + (pedido.endereco?.deliveryFee || 0);
+        const total = pedido.total || pedido.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0) + (pedido.endereco?.deliveryFee || 0);
 
-        const mensagem = `*Do'Cheff - Pedido #${pedido._id}*\n\n` +
-            `*Data:* ${new Date(pedido.data).toLocaleString()}\n` +
+        const mensagem = `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*\n\n` +
+            `*Data:* ${new Date(pedido.data).toLocaleString('pt-BR')}\n` +
             `*Status:* ${pedido.status}\n\n` +
             `*Cliente:*\n` +
             `Nome: ${pedido.cliente.nome}\n` +
             `Telefone: ${pedido.cliente.telefone}\n\n` +
             `*Endereço:*\n${enderecoFormatado}\n\n` +
             `*Itens do Pedido:*\n${itensFormatados}\n\n` +
-            `*Forma de Pagamento:* ${formaPagamento}${troco}\n` +
-            `*Subtotal:* R$ ${subtotal.toFixed(2)}${taxaEntrega}\n` +
-            `*Total:* R$ ${total.toFixed(2)}\n\n` +
-            `*Observações:*\n${pedido.observacoes || 'Nenhuma observação'}`;
+            `*Pagamento:* ${formaPagamento}${troco}\n` +
+            `*Subtotal:* R$ ${(total - (pedido.endereco?.deliveryFee || 0)).toFixed(2)}${taxaEntrega}\n` +
+            `*Total:* R$ ${total.toFixed(2)}`;
 
         if (navigator.share) {
             navigator.share({
-                title: `Pedido #${pedido._id}`,
+                title: `Pedido #${pedido._id.slice(-6)}`,
                 text: mensagem
             });
         } else {
@@ -190,11 +189,9 @@ export default function AdminOrders() {
                 setMensagem('Status atualizado com sucesso!');
                 setNotification(`Status do pedido #${orderId.slice(-6)} atualizado para ${getStatusText(newStatus)}`);
 
-                // Enviar notificação em tempo real
                 const timestamp = new Date().toLocaleString('pt-BR');
                 const message = `Status do pedido #${orderId.slice(-6)} atualizado para ${getStatusText(newStatus)}`;
 
-                // Enviar para o servidor de notificações
                 await fetch('/api/notifications', {
                     method: 'POST',
                     headers: {
@@ -209,7 +206,6 @@ export default function AdminOrders() {
                     }),
                 });
 
-                // Atualizar localStorage para compatibilidade com o sistema atual
                 const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
                 if (!notifyOrders.includes(orderId)) {
                     notifyOrders.push(orderId);
@@ -229,18 +225,6 @@ export default function AdminOrders() {
         } finally {
             setUpdatingStatus(null);
         }
-    };
-
-    const getStatusColor = (status: PedidoStatus) => {
-        const colors = {
-            pendente: 'bg-yellow-100 text-yellow-800',
-            preparando: 'bg-blue-100 text-blue-800',
-            pronto: 'bg-green-100 text-green-800',
-            em_entrega: 'bg-purple-100 text-purple-800',
-            entregue: 'bg-green-100 text-green-800',
-            cancelado: 'bg-red-100 text-red-800'
-        };
-        return colors[status];
     };
 
     const getStatusText = (status: PedidoStatus) => {
@@ -281,18 +265,7 @@ export default function AdminOrders() {
     };
 
     const calcularTotal = (pedido: Pedido) => {
-        if (pedido.total) return pedido.total;
-
-        // Verifica se existem itens antes de calcular
-        if (!pedido.itens || !Array.isArray(pedido.itens)) {
-            console.warn('Pedido sem itens:', pedido);
-            return 0;
-        }
-
-        // Se não houver total, calcula a partir dos itens
-        return pedido.itens.reduce((acc, item) => {
-            return acc + (item.preco * item.quantidade);
-        }, 0);
+        return pedido.total || pedido.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0) + (pedido.endereco?.deliveryFee || 0);
     };
 
     const filteredPedidos = pedidos.filter(pedido => {
@@ -451,22 +424,20 @@ export default function AdminOrders() {
                             <span className="text-gray-400">Tempo estimado de entrega:</span> <span className="text-white">{pedidoSelecionado.endereco?.estimatedTime || '-'}</span>
                         </div>
                         <div className="mb-4">
-                            <h4 className="font-semibold text-gray-400 mb-1">Itens</h4>
-                            <ul className="divide-y divide-gray-800">
+                            <h4 className="font-semibold text-gray-400 mb-2 text-lg border-b border-gray-700 pb-1">Itens do Pedido</h4>
+                            <ul className="space-y-3">
                                 {pedidoSelecionado.itens.map((item, idx) => (
-                                    <li key={idx} className="flex justify-between text-sm py-1 text-gray-200">
-                                        <span>
-                                            {item.quantidade}x {item.nome}
-                                            {item.size ? ` (${item.size})` : ''}
-                                            {item.border ? ` - Borda: ${item.border}` : ''}
-                                            {item.extras && item.extras.length > 0 && (
-                                                ` - Extras: ${item.extras.join(', ')}`
-                                            )}
-                                            {item.observacao ? (
-                                                <span className="block text-xs text-gray-400 mt-1">{item.observacao}</span>
-                                            ) : ''}
-                                        </span>
-                                        <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                    <li key={idx} className="text-sm text-gray-200 bg-[#1e1e1e] p-3 rounded-md">
+                                        <div className="flex justify-between font-bold">
+                                            <span>{item.quantidade}x {item.nome}</span>
+                                            <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                        </div>
+                                        <div className="text-xs text-gray-400 mt-1 space-y-1 pl-2 border-l-2 border-purple-800">
+                                            {item.size && <div><strong>Tamanho:</strong> {item.size}</div>}
+                                            {item.border && <div><strong>Borda:</strong> {item.border}</div>}
+                                            {item.extras && item.extras.length > 0 && <div><strong>Extras:</strong> {item.extras.join(', ')}</div>}
+                                            {item.observacao && <div><strong>Obs:</strong> {item.observacao}</div>}
+                                        </div>
                                     </li>
                                 ))}
                             </ul>

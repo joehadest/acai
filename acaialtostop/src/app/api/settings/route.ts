@@ -1,15 +1,14 @@
+// src/app/api/settings/route.ts
+
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import { isRestaurantOpen, getRestaurantStatus } from '../../../utils/timeUtils';
 import type { BusinessHoursConfig } from '../../../utils/timeUtils';
 
-// Adicione isso no topo do arquivo (após os imports)
 declare global {
-    // eslint-disable-next-line no-var
     var mongoose: { conn: any, promise: any } | undefined;
 }
 
-// Conexão com MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB = process.env.MONGODB_DB;
 
@@ -32,7 +31,6 @@ async function connectDB() {
             bufferCommands: false,
             dbName: MONGODB_DB,
         };
-
         cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
             return mongoose;
         });
@@ -48,16 +46,9 @@ async function connectDB() {
     return cached.conn;
 }
 
-// Schema do Settings
 const settingsSchema = new mongoose.Schema({
-    allowHalfAndHalf: {
-        type: Boolean,
-        default: false
-    },
-    isOpen: {
-        type: Boolean,
-        default: false
-    },
+    allowHalfAndHalf: { type: Boolean, default: false },
+    isOpen: { type: Boolean, default: false },
     businessHours: {
         monday: { open: { type: Boolean, default: false }, start: String, end: String },
         tuesday: { open: { type: Boolean, default: false }, start: String, end: String },
@@ -68,37 +59,27 @@ const settingsSchema = new mongoose.Schema({
         sunday: { open: { type: Boolean, default: false }, start: String, end: String }
     },
     deliveryFees: [{
-        neighborhood: {
-            type: String,
-            required: true
-        },
-        fee: {
-            type: Number,
-            required: true,
-            min: 0
-        }
+        neighborhood: { type: String, required: true },
+        fee: { type: Number, required: true, min: 0 }
     }],
-    adminPassword: {
-        type: String,
-        default: 'admin123' // Senha padrão
-    },
-    lastUpdated: {
-        type: Date,
-        default: Date.now
-    },
-    menuTitle: {
-        type: String,
-        default: ""
-    },
-    menuSubtitle: {
-        type: String,
-        default: ""
-    }
+    adminPassword: { type: String, default: 'admin123' },
+    lastUpdated: { type: Date, default: Date.now },
+    menuTitle: { type: String, default: "" },
+    menuSubtitle: { type: String, default: "" },
+    restaurantName: { type: String, default: "Do'Cheff" },
+    restaurantSubtitle: { type: String, default: "Informações do Restaurante" },
+    addressStreet: { type: String, default: "Rua Maria Luiza Dantas" },
+    addressCity: { type: String, default: "Alto Rodrigues - RN" },
+    contactPhone: { type: String, default: "+55 84 9872-9126" },
+    paymentMethods: { type: String, default: "Aceitamos cartões de crédito/débito, PIX e dinheiro" },
+    socialMediaInstagram: { type: String, default: "@docheff__" },
+    cnpj: { type: String, default: "53.378.172/0001-60" },
+    browserTitle: { type: String, default: "Do'Cheff - Cardápio Digital" },
+    logoUrl: { type: String, default: "/logo.jpg" }
 });
 
 const Settings = mongoose.models.Settings || mongoose.model('Settings', settingsSchema);
 
-// Função para verificar se o estabelecimento está aberto
 function isCurrentlyOpen(businessHours: any): boolean {
     return isRestaurantOpen(businessHours as BusinessHoursConfig);
 }
@@ -107,49 +88,45 @@ export async function GET() {
     try {
         await connectDB();
         const settings = await Settings.findOne() || await Settings.create({});
-
-        // Verifica se está aberto baseado no horário
         const isOpen = isCurrentlyOpen(settings.businessHours);
         const settingsData = settings.toObject();
         settingsData.isOpen = isOpen;
-
-
         return NextResponse.json({ success: true, data: settingsData });
     } catch (error) {
         console.error('Erro ao buscar configurações:', error);
-        return NextResponse.json(
-            { success: false, message: 'Erro ao buscar configurações' },
-            { status: 500 }
-        );
+        return NextResponse.json({ success: false, message: 'Erro ao buscar configurações' }, { status: 500 });
     }
 }
 
 export async function POST(request: Request) {
     try {
-        const { deliveryFees, businessHours, allowHalfAndHalf, menuTitle, menuSubtitle } = await request.json();
+        const body = await request.json();
         await connectDB();
+
+        // Encontra o documento de configurações ou cria um novo se não existir
         let settings = await Settings.findOne();
-
-        const updateData = {
-            deliveryFees,
-            businessHours,
-            allowHalfAndHalf,
-            menuTitle,
-            menuSubtitle,
-            lastUpdated: new Date()
-        };
-
         if (!settings) {
-            settings = await Settings.create(updateData);
-        } else {
-            settings.set(updateData);
-            await settings.save();
+            settings = new Settings();
         }
-        return NextResponse.json({ success: true, data: settings });
+
+        // Atualiza todos os campos do corpo da requisição
+        Object.keys(body).forEach(key => {
+            settings[key] = body[key];
+        });
+        
+        // CORREÇÃO: Garante que o Mongoose saiba que o array de taxas foi modificado
+        settings.markModified('deliveryFees');
+
+        settings.lastUpdated = new Date();
+
+        const updatedSettings = await settings.save();
+
+        return NextResponse.json({ success: true, data: updatedSettings });
     } catch (error) {
         console.error('Erro ao atualizar configurações:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
         return NextResponse.json(
-            { success: false, message: 'Erro ao atualizar configurações' },
+            { success: false, message: `Erro ao atualizar configurações: ${errorMessage}` },
             { status: 500 }
         );
     }

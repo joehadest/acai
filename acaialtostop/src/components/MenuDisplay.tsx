@@ -66,7 +66,6 @@ export default function MenuDisplay() {
         }
         fetchSettingsData();
     }, []);
-    // ...existing code...
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
     const { isOpen, toggleOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
@@ -631,26 +630,26 @@ export default function MenuDisplay() {
         );
     }
 
-    // Loading state
+    // CORREÇÃO: Tela de Carregamento com tema claro
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#262525] p-4 flex items-center justify-center">
+            <div className="min-h-[60vh] flex items-center justify-center bg-gray-100 p-4">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                    <p className="text-white text-lg">Carregando cardápio...</p>
+                    <p className="text-gray-800 text-lg">Carregando cardápio...</p>
                 </div>
             </div>
         );
     }
 
-    // Error state
+    // CORREÇÃO: Tela de Erro com tema claro
     if (error) {
         return (
-            <div className="min-h-screen bg-[#262525] p-4 flex items-center justify-center">
+            <div className="min-h-[60vh] flex items-center justify-center bg-gray-100 p-4">
                 <div className="text-center">
                     <div className="text-purple-600 text-6xl mb-4">⚠️</div>
-                    <h2 className="text-2xl font-bold text-purple-600 mb-4">Erro ao carregar cardápio</h2>
-                    <p className="text-gray-400 mb-4">{error}</p>
+                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Erro ao carregar cardápio</h2>
+                    <p className="text-gray-500 mb-4">{error}</p>
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -665,120 +664,52 @@ export default function MenuDisplay() {
     }
 
     return (
-        <div className="min-h-screen bg-[#262525] p-4">
+        <div className="min-h-screen bg-gray-100">
             {/* Barra de categorias */}
-            <div className="sticky top-0 z-10 bg-[#262525] pb-4 mb-6">
-                {/* Container centralizado para desktop, sem limites laterais em mobile */}
-                <div className="max-w-7xl mx-auto px-0 sm:px-4">
+            <div className="sticky top-[112px] z-30 bg-gray-100/80 backdrop-blur-sm py-4 mb-6">
+                <div className="max-w-7xl mx-auto">
                     <motion.div
                         ref={categoriesContainerRef}
-                        variants={containerVariants}
-                        initial="hidden"
-                        animate="visible"
-                        className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-600 scrollbar-track-gray-800 w-full px-4 sm:px-0 categories-container"
+                        className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-600 scrollbar-track-gray-200"
                     >
-                        {/* Botão Hambúrguer visível em todos os dispositivos */}
-                        <motion.button
-                            variants={categoryVariants}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => setShowCategoriesModal(true)}
-                            className="px-4 py-2 rounded-full bg-purple-600 text-white hover:bg-purple-700 transition-colors flex-shrink-0"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
-                        </motion.button>
-
-                        {/* Categorias visíveis em todos os dispositivos */}
                         {categories.map(category => (
                             <motion.button
                                 key={category.value}
-                                variants={categoryVariants}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
                                 onClick={() => handleCategoryClick(category.value)}
-                                data-category={category.value}
-                                className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 category-button relative ${selectedCategory === category.value
-                                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/25'
-                                    : 'bg-[#262525] text-gray-200 hover:bg-gray-800'
+                                className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 transition-colors shadow-sm ${selectedCategory === category.value
+                                    ? 'bg-purple-600 text-white'
+                                    : 'bg-white text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
                                 {category.label}
-                                {selectedCategory === category.value && (
-                                    <motion.div
-                                        layoutId="activeCategory"
-                                        className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-white rounded-full"
-                                        initial={{ opacity: 0, scale: 0 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0 }}
-                                    />
-                                )}
                             </motion.button>
                         ))}
                     </motion.div>
                 </div>
             </div>
-            {/* Container centralizado para o restante do conteúdo */}
-            <div className="max-w-7xl mx-auto px-4 py-4">
+
+            {/* Container do conteúdo */}
+            <div className="max-w-7xl mx-auto px-4 pb-24">
                 <motion.div
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="text-center mb-8"
                 >
-                    {menuTitle && <h1 className="text-4xl font-bold text-purple-600 mb-2">{menuTitle}</h1>}
-                    {menuSubtitle && <p className="text-purple-400">{menuSubtitle}</p>}
-
-                    {!isRestaurantOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="mt-4 p-4 bg-red-900/20 border border-red-600/50 rounded-lg max-w-md mx-auto"
-                        >
-                            <div className="flex items-center justify-center gap-2 text-red-400">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
-                                <span className="font-semibold">Estabelecimento Fechado</span>
-                            </div>
-                            <p className="text-red-300 text-sm mt-1 text-center">
-                                Pedidos não são aceitos no momento. Volte durante o horário de funcionamento.
-                            </p>
-                        </motion.div>
-                    )}
+                    {menuTitle && <h1 className="text-4xl font-bold text-gray-800 mb-2">{menuTitle}</h1>}
+                    {menuSubtitle && <p className="text-gray-600">{menuSubtitle}</p>}
                 </motion.div>
 
-                <motion.div
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                    className="space-y-8"
-                >
+                <div className="space-y-12">
                     {categories.map(category => (
                         <div key={category.value} id={`category-${category.value}`} className="space-y-4">
-                            <h2 className="text-2xl font-bold text-purple-600 capitalize">{category.label}</h2>
+                            <h2 className="text-3xl font-bold text-gray-800 capitalize">{category.label}</h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {menuItems
                                     .filter(item => item.category === category.value)
-                                    .slice() // cópia para não mutar o estado
-                                    .sort((a, b) => {
-                                        // Mantém a regra especial: se for pizza, "Calabresa" vem primeiro.
-                                        if (category.value === 'pizzas') {
-                                            const aIsCalabresa = a.name.toLowerCase().includes('calabresa');
-                                            const bIsCalabresa = b.name.toLowerCase().includes('calabresa');
-                                            if (aIsCalabresa && !bIsCalabresa) return -1;
-                                            if (!aIsCalabresa && bIsCalabresa) return 1;
-                                        }
-                                        // Ordena todos os itens pelo preço, do menor para o maior.
-                                        return a.price - b.price;
-                                    })
                                     .map((item) => (
                                         <motion.div
                                             key={item._id}
-                                            variants={itemVariants}
-                                            initial="hidden"
-                                            animate="visible"
-                                            className="bg-[#262525] rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-800"
+                                            className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 border border-gray-200"
                                         >
                                             <div className="relative h-48">
                                                 <Image
@@ -788,37 +719,17 @@ export default function MenuDisplay() {
                                                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                                     className="object-cover"
                                                 />
-                                                {item.destaque && (
-                                                    <div className="absolute top-2 right-2 bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-semibold">
-                                                        Destaque
-                                                    </div>
-                                                )}
                                             </div>
                                             <div className="p-4">
-                                                <h3 className="text-xl font-semibold text-white mb-2">{item.name}</h3>
-                                                <p className="text-gray-300 mb-4">{item.description}</p>
+                                                <h3 className="text-xl font-semibold text-gray-900 mb-2">{item.name}</h3>
+                                                <p className="text-gray-600 mb-4 h-12 overflow-hidden text-sm">{item.description}</p>
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-purple-500 font-bold text-lg">R$ {item.price.toFixed(2)}</span>
+                                                    <span className="text-purple-600 font-bold text-lg">R$ {item.price.toFixed(2)}</span>
                                                     <motion.button
-                                                        whileHover={isRestaurantOpen ? { scale: 1.05 } : {}}
-                                                        whileTap={isRestaurantOpen ? { scale: 0.95 } : {}}
-                                                        onClick={() => {
-                                                            if (!isRestaurantOpen) return;
-                                                            if (item.category === 'pizzas' || item.category === 'calzone') {
-                                                                setSelectedItem(item);
-                                                            } else if (item.category === 'massas') {
-                                                                handlePastaClick(item);
-                                                            } else {
-                                                                setSelectedItem(item);
-                                                            }
-                                                        }}
-                                                        disabled={!isRestaurantOpen}
-                                                        className={`px-4 py-2 rounded-lg transition-colors duration-300 ${isRestaurantOpen
-                                                            ? 'bg-purple-600 text-white hover:bg-purple-700'
-                                                            : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                                            }`}
+                                                        onClick={() => setSelectedItem(item)}
+                                                        className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700"
                                                     >
-                                                        {isRestaurantOpen ? 'Adicionar' : 'Fechado'}
+                                                        Adicionar
                                                     </motion.button>
                                                 </div>
                                             </div>
@@ -827,91 +738,7 @@ export default function MenuDisplay() {
                             </div>
                         </div>
                     ))}
-                </motion.div>
-
-                {/* Modal de Categorias */}
-                <AnimatePresence>
-                    {showCategoriesModal && (
-                        <motion.div
-                            className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={() => setShowCategoriesModal(false)}
-                        >
-                            <motion.div
-                                className="bg-gradient-to-br from-[#262525] to-[#1a1a1a] rounded-2xl shadow-2xl border border-gray-800 p-6 max-w-sm w-full mx-4 max-h-[80vh] flex flex-col"
-                                initial={{ scale: 0.8, y: 20, opacity: 0 }}
-                                animate={{ scale: 1, y: 0, opacity: 1 }}
-                                exit={{ scale: 0.8, y: 20, opacity: 0 }}
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                <div className="flex items-center justify-between mb-6 flex-shrink-0 pb-4 border-b border-gray-700">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
-                                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                                            </svg>
-                                        </div>
-                                        <h2 className="text-xl font-bold text-white">Categorias</h2>
-                                    </div>
-                                    <motion.button
-                                        whileHover={{ scale: 1.1, rotate: 90 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        onClick={() => setShowCategoriesModal(false)}
-                                        className="w-8 h-8 bg-gray-800 hover:bg-gray-700 rounded-full flex items-center justify-center transition-colors"
-                                    >
-                                        <svg className="w-5 h-5 text-gray-400 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </motion.button>
-                                </div>
-
-                                <div className="space-y-2 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-purple-600 scrollbar-track-gray-800 pr-2">
-                                    {categories.map((category, index) => (
-                                        <motion.button
-                                            key={category.value}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ delay: index * 0.05 }}
-                                            whileHover={{ scale: 1.02, x: 5 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            onClick={() => handleCategorySelect(category.value)}
-                                            className={`w-full text-left p-4 rounded-xl transition-all duration-300 border ${selectedCategory === category.value
-                                                ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white border-purple-500 shadow-lg shadow-purple-600/25'
-                                                : 'bg-gray-800/50 text-gray-200 hover:bg-gray-700/70 border-gray-700 hover:border-gray-600 hover:shadow-lg'
-                                                }`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-3 h-3 rounded-full ${selectedCategory === category.value ? 'bg-white' : 'bg-gray-500'
-                                                        }`}></div>
-                                                    <span className="text-lg font-medium">{getCategoryDisplayName(category.value)}</span>
-                                                </div>
-                                                <motion.div
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    transition={{ delay: index * 0.1 + 0.2 }}
-                                                >
-                                                    <svg className={`w-5 h-5 transition-colors ${selectedCategory === category.value ? 'text-white' : 'text-gray-400'
-                                                        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                                    </svg>
-                                                </motion.div>
-                                            </div>
-                                        </motion.button>
-                                    ))}
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t border-gray-700 flex-shrink-0">
-                                    <p className="text-sm text-gray-400 text-center">
-                                        Selecione uma categoria para navegar
-                                    </p>
-                                </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                </div>
 
                 <AnimatePresence>
                     {selectedItem && (
@@ -919,10 +746,10 @@ export default function MenuDisplay() {
                             item={selectedItem}
                             onClose={() => setSelectedItem(null)}
                             onAddToCart={(quantity, observation, size, border, extras) => {
-                                handleAddToCart(selectedItem!, quantity, observation, size, border, extras);
+                                addToCart(selectedItem, quantity, observation, size, border, extras);
+                                setSelectedItem(null);
                             }}
-                            allPizzas={allPizzas}
-                            allowHalfAndHalf={allowHalfAndHalf}
+                            allPizzas={menuItems.filter(i => i.category === 'pizzas')}
                             categories={categories}
                         />
                     )}

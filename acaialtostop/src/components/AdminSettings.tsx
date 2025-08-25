@@ -1,3 +1,5 @@
+// src/components/AdminSettings.tsx
+
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -39,6 +41,20 @@ export default function AdminSettings() {
     const [newFee, setNewFee] = useState('');
     const [isEditing, setIsEditing] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    // Novos estados para as informações do modal
+    const [restaurantName, setRestaurantName] = useState("Do'Cheff");
+    const [restaurantSubtitle, setRestaurantSubtitle] = useState("Informações do Restaurante");
+    const [addressStreet, setAddressStreet] = useState("Rua Maria Luiza Dantas");
+    const [addressCity, setAddressCity] = useState("Alto Rodrigues - RN");
+    const [contactPhone, setContactPhone] = useState("+55 84 9872-9126");
+    const [paymentMethods, setPaymentMethods] = useState("Aceitamos cartões de crédito/débito, PIX e dinheiro");
+    const [socialMediaInstagram, setSocialMediaInstagram] = useState("@docheff__");
+    const [cnpj, setCnpj] = useState("53.378.172/0001-60");
+    const [browserTitle, setBrowserTitle] = useState("Do'Cheff - Cardápio Digital");
+    // Estado para a logo
+    const [logoUrl, setLogoUrl] = useState("/logo.jpg");
+
 
     // Estados para alteração de senha
     const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -99,6 +115,17 @@ export default function AdminSettings() {
                     setAllowHalfAndHalf(data.data.allowHalfAndHalf || false);
                     setMenuTitle(data.data.menuTitle || "Do'Cheff");
                     setMenuSubtitle(data.data.menuSubtitle || "Escolha seus itens favoritos");
+                    // Novos campos
+                    setRestaurantName(data.data.restaurantName || "Do'Cheff");
+                    setRestaurantSubtitle(data.data.restaurantSubtitle || "Informações do Restaurante");
+                    setAddressStreet(data.data.addressStreet || "Rua Maria Luiza Dantas");
+                    setAddressCity(data.data.addressCity || "Alto Rodrigues - RN");
+                    setContactPhone(data.data.contactPhone || "+55 84 9872-9126");
+                    setPaymentMethods(data.data.paymentMethods || "Aceitamos cartões de crédito/débito, PIX e dinheiro");
+                    setSocialMediaInstagram(data.data.socialMediaInstagram || "@docheff__");
+                    setCnpj(data.data.cnpj || "53.378.172/0001-60");
+                    setBrowserTitle(data.data.browserTitle || "Do'Cheff - Cardápio Digital");
+                    setLogoUrl(data.data.logoUrl || "/logo.jpg");
                 }
             } catch (err) {
                 if (mounted) {
@@ -118,7 +145,7 @@ export default function AdminSettings() {
         if (isEditing) return;
         const interval = setInterval(() => {
             const newStatus = checkOpenStatus();
-            setIsOpen(newStatus);
+            setIsOpen(!!newStatus);
         }, 60000);
         return () => clearInterval(interval);
     }, [checkOpenStatus, isEditing]);
@@ -126,7 +153,7 @@ export default function AdminSettings() {
     // Não atualizar isOpen automaticamente ao editar
     useEffect(() => {
         if (isEditing) return;
-        setIsOpen(checkOpenStatus());
+        setIsOpen(!!checkOpenStatus());
     }, [businessHours, checkOpenStatus, isEditing]);
 
     // Pausar atualização automática de businessHours durante edição
@@ -165,14 +192,24 @@ export default function AdminSettings() {
                     deliveryFees,
                     allowHalfAndHalf,
                     menuTitle,
-                    menuSubtitle
+                    menuSubtitle,
+                    restaurantName,
+                    restaurantSubtitle,
+                    addressStreet,
+                    addressCity,
+                    contactPhone,
+                    paymentMethods,
+                    socialMediaInstagram,
+                    cnpj,
+                    browserTitle,
+                    logoUrl
                 })
             });
             const data = await res.json();
             if (data.success) {
                 setSaveMessage('Alterações salvas com sucesso!');
                 setIsEditing(false);
-                setIsOpen(checkOpenStatus());
+                setIsOpen(!!checkOpenStatus());
             } else {
                 setSaveMessage('Erro ao salvar alterações.');
             }
@@ -310,6 +347,20 @@ export default function AdminSettings() {
                 </div>
             </div>
 
+            {/* Informações do Restaurante (Modal) */}
+            <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
+                <h2 className="text-xl font-semibold mb-4">Informações do Restaurante (Modal)</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" value={restaurantName} onChange={e => setRestaurantName(e.target.value)} placeholder="Nome do Restaurante" className="form-input" />
+                    <input type="text" value={restaurantSubtitle} onChange={e => setRestaurantSubtitle(e.target.value)} placeholder="Subtítulo do Modal" className="form-input" />
+                    <input type="text" value={addressStreet} onChange={e => setAddressStreet(e.target.value)} placeholder="Rua do Endereço" className="form-input" />
+                    <input type="text" value={addressCity} onChange={e => setAddressCity(e.target.value)} placeholder="Cidade/Estado" className="form-input" />
+                    <input type="text" value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="Telefone de Contato" className="form-input" />
+                    <input type="text" value={paymentMethods} onChange={e => setPaymentMethods(e.target.value)} placeholder="Formas de Pagamento" className="form-input" />
+                    <input type="text" value={socialMediaInstagram} onChange={e => setSocialMediaInstagram(e.target.value)} placeholder="Instagram" className="form-input" />
+                    <input type="text" value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="CNPJ" className="form-input" />
+                </div>
+            </div>
 
             {/* Alterar Senha */}
             <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
@@ -322,7 +373,6 @@ export default function AdminSettings() {
                         {showPasswordChange ? 'Cancelar' : 'Alterar Senha'}
                     </button>
                 </div>
-
                 {showPasswordChange && (
                     <div className="space-y-4">
                         <div>
@@ -435,26 +485,56 @@ export default function AdminSettings() {
                 )}
             </div>
 
-            {/* Título do Cardápio */}
+            {/* Título do Cardápio e Navegador */}
             <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
-                <h2 className="text-xl font-semibold mb-4">Título do Cardápio</h2>
-                <div className="flex flex-col gap-2">
-                    <input
-                        type="text"
-                        value={menuTitle}
-                        onChange={e => setMenuTitle(e.target.value)}
-                        placeholder="Título principal (ex: Do'Cheff)"
-                        className="rounded-md border border-purple-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600 px-3 py-2"
-                    />
-                    <input
-                        type="text"
-                        value={menuSubtitle}
-                        onChange={e => setMenuSubtitle(e.target.value)}
-                        placeholder="Subtítulo (ex: Escolha seus itens favoritos)"
-                        className="rounded-md border border-purple-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600 px-3 py-2"
-                    />
+                <h2 className="text-xl font-semibold mb-4">Identidade Visual</h2>
+                <div className="flex flex-col gap-4">
+                    {/* Campo para a Logo */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">URL da Logo</label>
+                        <input
+                            type="text"
+                            value={logoUrl}
+                            onChange={e => setLogoUrl(e.target.value)}
+                            placeholder="https://exemplo.com/sua-logo.png"
+                            className="form-input"
+                        />
+                    </div>
+                    <hr className="border-gray-700" />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Título do Navegador (Aba)</label>
+                        <input
+                            type="text"
+                            value={browserTitle}
+                            onChange={e => setBrowserTitle(e.target.value)}
+                            placeholder="Título que aparece na aba do navegador"
+                            className="form-input"
+                        />
+                    </div>
+                    <hr className="border-gray-700" />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Título Principal do Cardápio</label>
+                        <input
+                            type="text"
+                            value={menuTitle}
+                            onChange={e => setMenuTitle(e.target.value)}
+                            placeholder="Ex: Do'Cheff"
+                            className="form-input"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-300 mb-1">Subtítulo do Cardápio</label>
+                        <input
+                            type="text"
+                            value={menuSubtitle}
+                            onChange={e => setMenuSubtitle(e.target.value)}
+                            placeholder="Ex: Escolha seus itens favoritos"
+                            className="form-input"
+                        />
+                    </div>
                 </div>
             </div>
+
             {/* Taxas de Entrega */}
             <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
                 <h2 className="text-xl font-semibold mb-4">Taxas de Entrega por Bairro</h2>
