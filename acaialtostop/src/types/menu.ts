@@ -1,3 +1,5 @@
+// src/types/menu.ts
+
 // Interface para categoria, compatível com o backend
 export interface Category {
     value: string;
@@ -14,9 +16,11 @@ export interface MenuItem {
     image: string;
     destaque: boolean;
     sizes?: {
-        P?: number;
-        G?: number;
-        'Única'?: number;
+        [key: string]: number;
+    };
+    // Novo campo para sabores
+    flavorOptions?: {
+        [key: string]: number;
     };
     borderOptions?: {
         [key: string]: number;
@@ -26,4 +30,12 @@ export interface MenuItem {
     };
     ingredients?: string[];
     isAvailable?: boolean;
-} 
+    maxExtras?: number;
+    sizesTitle?: string;
+    // Novos campos de título e máximo de escolhas para sabores
+    flavorsTitle?: string;
+    maxFlavors?: number;
+    extrasTitle?: string;
+    borderTitle?: string;
+    maxSizes?: number;
+}

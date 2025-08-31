@@ -85,11 +85,44 @@ const menuItemSchema = new mongoose.Schema({
         type: Map,
         of: Number,
         default: {}
-    }
-    ,
+    },
+    flavorOptions: {
+        type: Map,
+        of: Number,
+        default: {}
+    },
     isAvailable: {
         type: Boolean,
         default: true
+    },
+    maxFlavors: {
+        type: Number,
+        default: 1
+    },
+    // Campos de título para as opções
+    sizesTitle: {
+        type: String,
+        default: 'Tamanhos'
+    },
+    flavorsTitle: {
+        type: String,
+        default: 'Sabores'
+    },
+    extrasTitle: {
+        type: String,
+        default: 'Adicionais'
+    },
+    borderTitle: {
+        type: String,
+        default: 'Bordas'
+    },
+    maxSizes: {
+        type: Number,
+        default: 1
+    },
+    maxExtras: {
+        type: Number,
+        default: 1
     }
 });
 
@@ -114,6 +147,12 @@ export async function GET() {
         return NextResponse.json({
             success: true,
             data: menuItems
+        }, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
         });
     } catch (error) {
         console.error('GET /api/menu - Erro:', error);
@@ -135,6 +174,12 @@ export async function POST(request: Request) {
         return NextResponse.json({
             success: true,
             data: savedItem
+        }, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
         });
     } catch (error) {
         console.error('POST /api/menu - Erro:', error);
@@ -163,6 +208,12 @@ export async function PUT(request: Request) {
         return NextResponse.json({
             success: true,
             data: updatedItem
+        }, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
         });
     } catch (error) {
         console.error('PUT /api/menu - Erro:', error);
@@ -198,6 +249,12 @@ export async function DELETE(request: Request) {
         return NextResponse.json({
             success: true,
             message: 'Item deletado com sucesso'
+        }, {
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
         });
     } catch (error) {
         console.error('DELETE /api/menu - Erro:', error);

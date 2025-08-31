@@ -1,13 +1,13 @@
 // src/components/AdminOrders.tsx
-
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
-import { FaShareAlt } from 'react-icons/fa';
+import { FaShareAlt, FaVolumeUp, FaVolumeMute } from 'react-icons/fa'; // Ícones de volume
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import Notification from './Notification';
+import NotificationComponent from './Notification';
 import { Pedido } from '../types/cart';
 
+// ... (interfaces permanecem as mesmas) ...
 interface Endereco {
     street: string;
     number: string;
@@ -26,6 +26,12 @@ interface PedidoItem {
     size?: string;
     border?: string;
     extras?: string[];
+    flavors?: string[]; // Adicionado
+    // Adicionando os títulos
+    sizesTitle?: string;
+    flavorsTitle?: string; // Adicionado
+    borderTitle?: string;
+    extrasTitle?: string;
 }
 
 interface Cliente {
@@ -35,7 +41,31 @@ interface Cliente {
 
 type PedidoStatus = 'pendente' | 'preparando' | 'pronto' | 'em_entrega' | 'entregue' | 'cancelado';
 
+
 export default function AdminOrders() {
+    // Estado para controle da permissão de notificação
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'default');
+
+    // Função para solicitar permissão de notificação do navegador
+    const handleRequestNotificationPermission = async () => {
+        if ('Notification' in window) {
+            try {
+                const permission = await window.Notification.requestPermission();
+                setNotificationPermission(permission);
+                if (permission === 'granted') {
+                    setMensagemCompartilhamento('Permissão de notificação concedida!');
+                    setTimeout(() => setMensagemCompartilhamento(null), 3000);
+                } else if (permission === 'denied') {
+                    setMensagemCompartilhamento('Permissão de notificação negada.');
+                    setTimeout(() => setMensagemCompartilhamento(null), 3000);
+                }
+            } catch (error) {
+                alert('Erro ao solicitar permissão de notificação.');
+            }
+        } else {
+            alert('Este navegador não suporta notificações.');
+        }
+    };
     const [pedidos, setPedidos] = useState<Pedido[]>([]);
     const [loading, setLoading] = useState(true);
     const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
@@ -45,6 +75,21 @@ export default function AdminOrders() {
     const [statusFilter, setStatusFilter] = useState('');
     const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
     const [notification, setNotification] = useState<string | null>(null);
+    const [menuTitle, setMenuTitle] = useState<string>('Do\'Cheff');
+    const [globalSoundEnabled, setGlobalSoundEnabled] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('global-sound-enabled');
+            return saved === null ? true : saved === 'true'; // Som ativado por padrão
+        }
+        return true;
+    });
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    const toggleGlobalSound = () => {
+        const newState = !globalSoundEnabled;
+        setGlobalSoundEnabled(newState);
+        localStorage.setItem('global-sound-enabled', newState.toString());
+    };
 
     const fetchPedidos = async () => {
         try {
@@ -56,14 +101,14 @@ export default function AdminOrders() {
                 );
 
                 if (novosPedidos.length > 0) {
-                    setNotification(`Novo pedido recebido! #${novosPedidos[0]._id.slice(-6)}`);
+                    setNotification(`🚨 Novo pedido #${novosPedidos[0]._id.slice(-6)} - ${novosPedidos[0].cliente?.nome || 'Cliente'}`);
+                    
                     const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
                     if (!notifyOrders.includes(novosPedidos[0]._id)) {
                         notifyOrders.push(novosPedidos[0]._id);
                         localStorage.setItem('notifyOrders', JSON.stringify(notifyOrders));
                     }
                 }
-
                 setPedidos(data.data);
             }
         } catch (err) {
@@ -75,12 +120,23 @@ export default function AdminOrders() {
 
     useEffect(() => {
         fetchPedidos();
-    }, []);
-
-    useEffect(() => {
         const interval = setInterval(fetchPedidos, 30000);
         return () => clearInterval(interval);
     }, [pedidos]);
+
+    // Buscar o título do menu
+    useEffect(() => {
+        async function fetchMenuTitle() {
+            try {
+                const res = await fetch('/api/settings');
+                const data = await res.json();
+                if (data.success && data.data && data.data.menuTitle) {
+                    setMenuTitle(data.data.menuTitle);
+                }
+            } catch {}
+        }
+        fetchMenuTitle();
+    }, []);
 
     const handleRemoverPedido = async (id: string) => {
         if (!window.confirm('Tem certeza que deseja remover este pedido?')) return;
@@ -131,9 +187,10 @@ export default function AdminOrders() {
 
         const itensFormatados = pedido.itens.map(item => {
             let itemStr = `*${item.quantidade}x ${item.nome}*`;
-            if (item.size) itemStr += `\n  - Tamanho: ${item.size}`;
-            if (item.border) itemStr += `\n  - Borda: ${item.border}`;
-            if (item.extras && item.extras.length > 0) itemStr += `\n  - Extras: ${item.extras.join(', ')}`;
+            if (item.size) itemStr += `\n  - ${item.sizesTitle || 'Tamanho'}: ${item.size}`;
+            if (item.flavors && item.flavors.length > 0) itemStr += `\n  - ${item.flavorsTitle || 'Sabores'}: ${item.flavors.join(', ')}`;
+            if (item.border) itemStr += `\n  - ${item.borderTitle || 'Borda'}: ${item.border}`;
+            if (item.extras && item.extras.length > 0) itemStr += `\n  - ${item.extrasTitle || 'Extras'}: ${item.extras.join(', ')}`;
             if (item.observacao) itemStr += `\n  - Obs: ${item.observacao}`;
             itemStr += `\n  - Valor: R$ ${(item.preco * item.quantidade).toFixed(2)}`;
             return itemStr;
@@ -141,7 +198,7 @@ export default function AdminOrders() {
 
         const total = pedido.total || pedido.itens.reduce((acc, item) => acc + (item.preco * item.quantidade), 0) + (pedido.endereco?.deliveryFee || 0);
 
-        const mensagem = `*Do'Cheff - Pedido #${pedido._id.slice(-6)}*\n\n` +
+        const mensagem = `*${menuTitle} - Pedido #${pedido._id.slice(-6)}*\n\n` +
             `*Data:* ${new Date(pedido.data).toLocaleString('pt-BR')}\n` +
             `*Status:* ${pedido.status}\n\n` +
             `*Cliente:*\n` +
@@ -187,7 +244,7 @@ export default function AdminOrders() {
                         : order
                 ));
                 setMensagem('Status atualizado com sucesso!');
-                setNotification(`Status do pedido #${orderId.slice(-6)} atualizado para ${getStatusText(newStatus)}`);
+                setNotification(`✅ Status do pedido #${orderId.slice(-6)} atualizado para ${getStatusText(newStatus)}`);
 
                 const timestamp = new Date().toLocaleString('pt-BR');
                 const message = `Status do pedido #${orderId.slice(-6)} atualizado para ${getStatusText(newStatus)}`;
@@ -274,76 +331,100 @@ export default function AdminOrders() {
         return matchesPhone && matchesStatus;
     });
 
-    if (loading) return <div>Carregando pedidos...</div>;
+    if (loading) return <div className="text-center py-10">Carregando pedidos...</div>;
     if (!pedidos.length) return <div className="text-center text-gray-500">Nenhum pedido recente.</div>;
 
     return (
-        <div className="min-h-screen bg-[#262525] p-4">
+        <div className="p-4 bg-gray-100 min-h-screen">
             <h2 className="text-2xl font-bold mb-4 text-purple-600">Painel de Pedidos</h2>
+
+            {/* Mensagem para Ativar o Som */}
+            {/* ...nenhum botão de ativação de som... */}
+
             {mensagemCompartilhamento && (
                 <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded text-center font-semibold">
                     {mensagemCompartilhamento}
                 </div>
             )}
             {notification && (
-                <div className="fixed top-6 right-6 z-50 bg-purple-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up font-semibold text-lg">
-                    <span>🔔</span>
-                    <span>{notification}</span>
+                <NotificationComponent 
+                    message={notification} 
+                    onClose={() => setNotification(null)}
+                    type={notification.includes('✅') ? 'success' : notification.includes('🚨') ? 'warning' : 'info'}
+                    playSound={notification.includes('🚨') && globalSoundEnabled} // Só toca som para novos pedidos E se som global estiver ativado
+                />
+            )}
+            {/* Filtros */}
+            <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-gray-800">Controles</h3>
                     <button
-                        onClick={() => setNotification(null)}
-                        className="ml-2 hover:text-purple-200 transition-colors text-2xl font-bold"
-                        aria-label="Fechar notificação"
+                        onClick={toggleGlobalSound}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                            globalSoundEnabled 
+                                ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                        title={globalSoundEnabled ? 'Desativar sons de notificação' : 'Ativar sons de notificação'}
                     >
-                        ×
+                        <FaVolumeUp className={`text-lg ${globalSoundEnabled ? '' : 'opacity-50'}`} />
+                        <span className="text-sm font-medium">
+                            {globalSoundEnabled ? 'Som Ativado' : 'Som Desativado'}
+                        </span>
                     </button>
                 </div>
-            )}
-            <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Buscar por telefone
-                </label>
-                <input
-                    type="tel"
-                    value={phoneFilter}
-                    onChange={(e) => setPhoneFilter(e.target.value)}
-                    placeholder="Digite o telefone do pedido"
-                    className="w-full max-w-md rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600"
-                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Buscar por telefone
+                        </label>
+                        <input
+                            type="tel"
+                            value={phoneFilter}
+                            onChange={(e) => setPhoneFilter(e.target.value)}
+                            placeholder="Digite o telefone do pedido"
+                            className="w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-purple-600 focus:ring-purple-600"
+                        />
+                    </div>
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Filtrar por status
+                        </label>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-purple-600 focus:ring-purple-600"
+                        >
+                            <option value="">Todos os status</option>
+                            <option value="pendente">Pendente</option>
+                            <option value="preparando">Preparando</option>
+                            <option value="pronto">Pronto</option>
+                            <option value="em_entrega">Em Entrega</option>
+                            <option value="entregue">Entregue</option>
+                            <option value="cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-200 mb-2">
-                    Filtrar por status
-                </label>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full max-w-md rounded-md border border-gray-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600"
-                >
-                    <option value="">Todos os status</option>
-                    <option value="pendente">Pendente</option>
-                    <option value="preparando">Preparando</option>
-                    <option value="pronto">Pronto</option>
-                    <option value="em_entrega">Em Entrega</option>
-                    <option value="entregue">Entregue</option>
-                    <option value="cancelado">Cancelado</option>
-                </select>
-            </div>
+            {/* Lista de Pedidos */}
             <ul className="space-y-4">
                 {filteredPedidos.map((pedido) => (
-                    <li key={pedido._id} className="bg-[#262525] rounded-xl shadow-lg p-6 border border-gray-800 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                    <li key={pedido._id} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <div className="font-semibold text-lg text-white">Pedido <span className="text-purple-500">#{pedido._id.slice(-6)}</span></div>
-                            <div className="text-sm text-gray-400 mb-2">
+                            <div className="font-semibold text-lg text-gray-900">Pedido <span className="text-purple-600">#{pedido._id.slice(-6)}</span></div>
+                            <div className="text-sm text-gray-500 mb-2">
                                 Data: {formatDate(pedido.data)}
                             </div>
                             <div className="font-bold text-purple-600">Total: R$ {calcularTotal(pedido).toFixed(2)}</div>
                             <div className="flex items-center gap-2 mt-2">
                                 <div className={`inline-block px-2 py-1 rounded-full text-xs font-semibold 
-                                    ${pedido.status === 'entregue' ? 'bg-green-700 text-green-200' : ''}
-                                    ${pedido.status === 'pendente' ? 'bg-yellow-700 text-yellow-200' : ''}
-                                    ${pedido.status === 'preparando' ? 'bg-blue-700 text-blue-200' : ''}
-                                    ${pedido.status === 'em_entrega' ? 'bg-purple-700 text-purple-200' : ''}
-                                    ${pedido.status === 'cancelado' ? 'bg-red-700 text-red-200' : ''}
+                                    ${pedido.status === 'entregue' ? 'bg-green-100 text-green-800' : ''}
+                                    ${pedido.status === 'pendente' ? 'bg-yellow-100 text-yellow-800' : ''}
+                                    ${pedido.status === 'preparando' ? 'bg-blue-100 text-blue-800' : ''}
+                                    ${pedido.status === 'em_entrega' ? 'bg-purple-100 text-purple-800' : ''}
+                                    ${pedido.status === 'cancelado' ? 'bg-red-100 text-red-800' : ''}
                                 `}>
                                     {getStatusText(pedido.status)}
                                 </div>
@@ -366,10 +447,11 @@ export default function AdminOrders() {
                                 Ver Detalhes
                             </button>
                             <button
-                                className="px-4 py-2 bg-blue-500 text-white rounded font-semibold hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+                                className="flex-1 bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2"
                                 onClick={() => handleCompartilharPedido(pedido)}
                             >
-                                <FaShareAlt /> Compartilhar
+                                <FaShareAlt className="w-4 h-4" />
+                                Compartilhar
                             </button>
                             <button
                                 className="px-4 py-2 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition-colors"
@@ -391,88 +473,102 @@ export default function AdminOrders() {
             {pedidoSelecionado && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={() => setPedidoSelecionado(null)}>
                     <div
-                        className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full relative print-pedido border border-gray-800 max-h-[90vh] overflow-y-auto"
+                        className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full relative print-pedido border border-gray-200 max-h-[90vh] overflow-y-auto"
                         onClick={e => e.stopPropagation()}
                     >
                         <button
-                            className="absolute top-2 right-2 text-purple-500 hover:text-purple-400 text-2xl focus:outline-none no-print"
+                            className="absolute top-2 right-2 text-purple-600 hover:text-purple-400 text-2xl focus:outline-none no-print"
                             onClick={() => setPedidoSelecionado(null)}
                             aria-label="Fechar modal de pedido"
                         >
                             &times;
                         </button>
-                        <h3 className="text-2xl font-bold mb-4 text-purple-600 text-center">Do'Cheff</h3>
-                        <div className="mb-4 text-sm text-gray-300 text-center space-y-1">
-                            <div><span className="text-gray-400">Pedido:</span> <span className="text-white font-semibold">#{pedidoSelecionado._id?.slice(-6) || '-'}</span></div>
-                            <div><span className="text-gray-400">Data:</span> <span className="text-white">{pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</span></div>
-                            <div><span className="text-gray-400">Status:</span> <span className="font-semibold text-green-400">{getStatusText(pedidoSelecionado.status)}</span></div>
+                        <h3 className="text-2xl font-bold mb-4 text-purple-600 text-center"></h3>
+                        <div className="mb-4 text-sm text-gray-700 text-center space-y-1">
+                            <div><span className="text-gray-500">Pedido:</span> <span className="text-gray-900 font-semibold">#{pedidoSelecionado._id?.slice(-6) || '-'}</span></div>
+                            <div><span className="text-gray-500">Data:</span> <span className="text-gray-900">{pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</span></div>
+                            <div><span className="text-gray-500">Status:</span> <span className="font-semibold text-green-600">{getStatusText(pedidoSelecionado.status)}</span></div>
                         </div>
-                        <div className="mb-4 text-sm text-gray-300 space-y-1">
-                            <h4 className="font-semibold text-gray-400 mb-1">Cliente</h4>
-                            <div><span className="text-gray-400">Nome:</span> <span className="text-white">{pedidoSelecionado.cliente?.nome || '-'}</span></div>
-                            <div><span className="text-gray-400">Telefone:</span> <span className="text-white">{pedidoSelecionado.cliente?.telefone || '-'}</span></div>
+                        <div className="mb-4 text-sm text-gray-700 space-y-1">
+                            <h4 className="font-semibold text-gray-500 mb-1">Cliente</h4>
+                            <div><span className="text-gray-500">Nome:</span> <span className="text-gray-900">{pedidoSelecionado.cliente?.nome || '-'}</span></div>
+                            <div><span className="text-gray-500">Telefone:</span> <span className="text-gray-900">{pedidoSelecionado.cliente?.telefone || '-'}</span></div>
                         </div>
-                        <div className="mb-4 text-sm text-gray-300 space-y-1">
-                            <h4 className="font-semibold text-gray-400 mb-1">Endereço de Entrega</h4>
-                            <div><span className="text-gray-400">Rua:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.street || '-'}</span></div>
-                            <div><span className="text-gray-400">Número:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.number || '-'}</span></div>
-                            {pedidoSelecionado.endereco?.address?.complement && <div><span className="text-gray-400">Compl:</span> <span className="text-white">{pedidoSelecionado.endereco.address.complement}</span></div>}
-                            <div><span className="text-gray-400">Bairro:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</span></div>
-                            <div><span className="text-gray-400">Ponto de Referência:</span> <span className="text-white">{pedidoSelecionado.endereco?.address?.referencePoint || '-'}</span></div>
+                        <div className="mb-4 text-sm text-gray-700 space-y-1">
+                            <h4 className="font-semibold text-gray-500 mb-1">Endereço de Entrega</h4>
+                            <div><span className="text-gray-500">Rua:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.street || '-'}</span></div>
+                            <div><span className="text-gray-500">Número:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.number || '-'}</span></div>
+                            {pedidoSelecionado.endereco?.address?.complement && <div><span className="text-gray-500">Compl:</span> <span className="text-gray-900">{pedidoSelecionado.endereco.address.complement}</span></div>}
+                            <div><span className="text-gray-500">Bairro:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</span></div>
+                            <div><span className="text-gray-500">Ponto de Referência:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.referencePoint || '-'}</span></div>
                         </div>
-                        <div className="mb-4 text-sm text-gray-300">
-                            <span className="text-gray-400">Tempo estimado de entrega:</span> <span className="text-white">{pedidoSelecionado.endereco?.estimatedTime || '-'}</span>
+                        <div className="mb-4 text-sm text-gray-700">
+                            <span className="text-gray-500">Tempo estimado de entrega:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.estimatedTime || '-'}</span>
                         </div>
                         <div className="mb-4">
-                            <h4 className="font-semibold text-gray-400 mb-2 text-lg border-b border-gray-700 pb-1">Itens do Pedido</h4>
+                            <h4 className="font-semibold text-gray-500 mb-2 text-lg border-b border-gray-200 pb-1">Itens do Pedido</h4>
                             <ul className="space-y-3">
                                 {pedidoSelecionado.itens.map((item, idx) => (
-                                    <li key={idx} className="text-sm text-gray-200 bg-[#1e1e1e] p-3 rounded-md">
+                                    <li key={idx} className="text-sm text-gray-900 bg-gray-100 p-3 rounded-md">
                                         <div className="flex justify-between font-bold">
                                             <span>{item.quantidade}x {item.nome}</span>
                                             <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
                                         </div>
-                                        <div className="text-xs text-gray-400 mt-1 space-y-1 pl-2 border-l-2 border-purple-800">
-                                            {item.size && <div><strong>Tamanho:</strong> {item.size}</div>}
-                                            {item.border && <div><strong>Borda:</strong> {item.border}</div>}
-                                            {item.extras && item.extras.length > 0 && <div><strong>Extras:</strong> {item.extras.join(', ')}</div>}
-                                            {item.observacao && <div><strong>Obs:</strong> {item.observacao}</div>}
+                                        <div className="text-xs text-gray-600 mt-2 space-y-1 pl-2 border-l-2 border-purple-300">
+                                            {item.size !== undefined && item.size !== '' && (
+                                                <div>
+                                                    <strong className="text-gray-700">{item.sizesTitle || 'Tamanho'}:</strong> {Array.isArray(item.size) ? item.size.join(', ') : item.size}
+                                                </div>
+                                            )}
+                                            {item.flavors && item.flavors.length > 0 && <div><strong className="text-gray-700">{item.flavorsTitle || 'Sabores'}:</strong> {item.flavors.join(', ')}</div>}
+                                            {item.border && <div><strong className="text-gray-700">{item.borderTitle || 'Borda'}:</strong> {item.border}</div>}
+                                            {item.extras && item.extras.length > 0 && <div><strong className="text-gray-700">{item.extrasTitle || 'Extras'}:</strong> {item.extras.join(', ')}</div>}
+                                            {item.observacao && <div><strong className="text-gray-700">Observações:</strong> {item.observacao}</div>}
                                         </div>
                                     </li>
                                 ))}
                             </ul>
                         </div>
                         {pedidoSelecionado.observacoes && (
-                            <div className="mb-4 text-sm text-gray-300">
-                                <h4 className="font-semibold text-gray-400 mb-1">Observações</h4>
+                            <div className="mb-4 text-sm text-gray-700">
+                                <h4 className="font-semibold text-gray-500 mb-1">Observações</h4>
                                 <div>{pedidoSelecionado.observacoes}</div>
                             </div>
                         )}
-                        <div className="flex justify-between text-sm text-gray-300 border-t border-gray-800 pt-2 mb-2">
+                        <div className="flex justify-between text-sm text-gray-700 border-t border-gray-200 pt-2 mb-2">
                             <span>Taxa de Entrega:</span>
                             <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0,00'}</span>
                         </div>
-                        <div className="mb-4 text-sm text-gray-300 space-y-1">
-                            <h4 className="font-semibold text-gray-400 mb-1">Pagamento</h4>
-                            <div><span className="text-gray-400">Forma:</span> <span className="text-white">{
+                        <div className="mb-4 text-sm text-gray-700 space-y-1">
+                            <h4 className="font-semibold text-gray-500 mb-1">Pagamento</h4>
+                            <div><span className="text-gray-500">Forma:</span> <span className="text-gray-900">{
                                 pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' :
                                     pedidoSelecionado.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' :
                                         'Dinheiro'
                             }</span></div>
                             {pedidoSelecionado.formaPagamento?.toLowerCase() === 'dinheiro' && (
-                                <div><span className="text-gray-400">Troco para:</span> <span className="text-white">R$ {pedidoSelecionado.troco || '-'}</span></div>
+                                <div><span className="text-gray-500">Troco para:</span> <span className="text-gray-900">R$ {pedidoSelecionado.troco || '-'}</span></div>
                             )}
                         </div>
-                        <div className="font-bold text-purple-600 mt-2 text-2xl flex justify-between items-center border-t border-gray-800 pt-4">
+                        <div className="font-bold text-purple-600 mt-2 text-2xl flex justify-between items-center border-t border-gray-200 pt-4">
                             <span>Total:</span>
                             <span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span>
                         </div>
                         <div className="mt-4 flex gap-2">
                             <button
-                                className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-orange-900 font-bold py-2 rounded-lg transition-colors no-print"
-                                onClick={() => window.print()}
+                                className="flex-1 bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2 no-print"
+                                onClick={() => {
+                                    if (pedidoSelecionado) {
+                                        const printWindow = window.open(`/api/pedidos?id=${pedidoSelecionado._id}&print=true`, '_blank');
+                                        if (printWindow) {
+                                            printWindow.onload = () => {
+                                                printWindow.print();
+                                            };
+                                        }
+                                    }
+                                }}
                             >
-                                Imprimir
+                                🖨️ Imprimir Recibo
                             </button>
                             {getNextStatus(pedidoSelecionado.status) && (
                                 <button

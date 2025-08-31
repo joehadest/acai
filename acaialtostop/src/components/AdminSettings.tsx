@@ -21,7 +21,7 @@ interface BusinessHours {
 export default function AdminSettings() {
     // Estado para permitir/desabilitar pizzas meio a meio
     const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(false);
-    const [menuTitle, setMenuTitle] = useState("Do'Cheff");
+    const [menuTitle, setMenuTitle] = useState("");
     const [menuSubtitle, setMenuSubtitle] = useState("Escolha seus itens favoritos");
     const [isOpen, setIsOpen] = useState(false);
     const router = useRouter();
@@ -43,17 +43,19 @@ export default function AdminSettings() {
     const [loading, setLoading] = useState(false);
 
     // Novos estados para as informações do modal
-    const [restaurantName, setRestaurantName] = useState("Do'Cheff");
+    const [restaurantName, setRestaurantName] = useState("");
     const [restaurantSubtitle, setRestaurantSubtitle] = useState("Informações do Restaurante");
     const [addressStreet, setAddressStreet] = useState("Rua Maria Luiza Dantas");
+    const [addressNumber, setAddressNumber] = useState("");
     const [addressCity, setAddressCity] = useState("Alto Rodrigues - RN");
     const [contactPhone, setContactPhone] = useState("+55 84 9872-9126");
     const [paymentMethods, setPaymentMethods] = useState("Aceitamos cartões de crédito/débito, PIX e dinheiro");
-    const [socialMediaInstagram, setSocialMediaInstagram] = useState("@docheff__");
+    const [socialMediaInstagram, setSocialMediaInstagram] = useState("");
     const [cnpj, setCnpj] = useState("53.378.172/0001-60");
-    const [browserTitle, setBrowserTitle] = useState("Do'Cheff - Cardápio Digital");
+    const [browserTitle, setBrowserTitle] = useState("");
     // Estado para a logo
     const [logoUrl, setLogoUrl] = useState("/logo.jpg");
+    const [whatsappNumber, setWhatsappNumber] = useState("");
 
 
     // Estados para alteração de senha
@@ -113,19 +115,21 @@ export default function AdminSettings() {
                     setBusinessHours(data.data.businessHours || {});
                     setDeliveryFees(data.data.deliveryFees || []);
                     setAllowHalfAndHalf(data.data.allowHalfAndHalf || false);
-                    setMenuTitle(data.data.menuTitle || "Do'Cheff");
+                    setMenuTitle(data.data.menuTitle || "");
                     setMenuSubtitle(data.data.menuSubtitle || "Escolha seus itens favoritos");
                     // Novos campos
-                    setRestaurantName(data.data.restaurantName || "Do'Cheff");
+                    setRestaurantName(data.data.restaurantName || "");
                     setRestaurantSubtitle(data.data.restaurantSubtitle || "Informações do Restaurante");
                     setAddressStreet(data.data.addressStreet || "Rua Maria Luiza Dantas");
+                    setAddressNumber(data.data.addressNumber || "");
                     setAddressCity(data.data.addressCity || "Alto Rodrigues - RN");
                     setContactPhone(data.data.contactPhone || "+55 84 9872-9126");
                     setPaymentMethods(data.data.paymentMethods || "Aceitamos cartões de crédito/débito, PIX e dinheiro");
-                    setSocialMediaInstagram(data.data.socialMediaInstagram || "@docheff__");
+                    setSocialMediaInstagram(data.data.socialMediaInstagram || "");
                     setCnpj(data.data.cnpj || "53.378.172/0001-60");
-                    setBrowserTitle(data.data.browserTitle || "Do'Cheff - Cardápio Digital");
+                    setBrowserTitle(data.data.browserTitle || "");
                     setLogoUrl(data.data.logoUrl || "/logo.jpg");
+                    setWhatsappNumber(data.data.whatsappNumber || "");
                 }
             } catch (err) {
                 if (mounted) {
@@ -196,13 +200,15 @@ export default function AdminSettings() {
                     restaurantName,
                     restaurantSubtitle,
                     addressStreet,
+                    addressNumber,
                     addressCity,
                     contactPhone,
                     paymentMethods,
                     socialMediaInstagram,
                     cnpj,
                     browserTitle,
-                    logoUrl
+                    logoUrl,
+                    whatsappNumber
                 })
             });
             const data = await res.json();
@@ -304,296 +310,176 @@ export default function AdminSettings() {
         <div className="max-w-4xl mx-auto p-4 w-full">
             <h1 className="text-2xl font-bold mb-6 text-purple-600">Configurações do Estabelecimento</h1>
 
-            {/* Indicador de status aberto/fechado */}
-            <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                <span className={`px-4 py-2 rounded-full text-lg font-semibold ${checkOpenStatus() ? 'bg-purple-100 text-purple-800' : 'bg-gray-800 text-purple-300 border border-purple-600'}`}>
+            {/* Indicador de status */}
+            <div className="mb-6 flex items-center gap-4">
+                <span className={`px-4 py-2 rounded-full text-lg font-semibold ${checkOpenStatus() ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-800'}`}>
                     {checkOpenStatus() ? 'Aberto' : 'Fechado'}
                 </span>
-                <span className="text-purple-400 text-sm">(de acordo com as caixas de seleção e horários atuais)</span>
             </div>
 
-            {/* Horários de Funcionamento */}
-            <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
-                <h2 className="text-xl font-semibold mb-4">Horários de Funcionamento</h2>
-                <div className="space-y-4">
-                    {daysOfWeek.map(({ key, label }) => (
-                        <div key={key} className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
-                            <label className="flex items-center space-x-2 min-w-[150px]">
-                                <input
-                                    type="checkbox"
-                                    checked={businessHours[key]?.open ?? false}
-                                    onChange={(e) => handleBusinessHoursChange(key, 'open', e.target.checked)}
-                                    className="form-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500"
-                                />
-                                <span>{label}</span>
-                            </label>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0 w-full">
-                                <input
-                                    type="time"
-                                    value={businessHours[key]?.start ?? '18:00'}
-                                    onChange={(e) => handleBusinessHoursChange(key, 'start', e.target.value)}
-                                    className="form-input w-full sm:w-32 bg-[#262525] text-white border border-purple-700 focus:ring-purple-500 focus:border-purple-500"
-                                />
-                                <span className="hidden sm:inline">até</span>
-                                <input
-                                    type="time"
-                                    value={businessHours[key]?.end ?? '22:00'}
-                                    onChange={(e) => handleBusinessHoursChange(key, 'end', e.target.value)}
-                                    className="form-input w-full sm:w-32 bg-[#262525] text-white border border-purple-700 focus:ring-purple-500 focus:border-purple-500"
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Informações do Restaurante (Modal) */}
-            <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
-                <h2 className="text-xl font-semibold mb-4">Informações do Restaurante (Modal)</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" value={restaurantName} onChange={e => setRestaurantName(e.target.value)} placeholder="Nome do Restaurante" className="form-input" />
-                    <input type="text" value={restaurantSubtitle} onChange={e => setRestaurantSubtitle(e.target.value)} placeholder="Subtítulo do Modal" className="form-input" />
-                    <input type="text" value={addressStreet} onChange={e => setAddressStreet(e.target.value)} placeholder="Rua do Endereço" className="form-input" />
-                    <input type="text" value={addressCity} onChange={e => setAddressCity(e.target.value)} placeholder="Cidade/Estado" className="form-input" />
-                    <input type="text" value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="Telefone de Contato" className="form-input" />
-                    <input type="text" value={paymentMethods} onChange={e => setPaymentMethods(e.target.value)} placeholder="Formas de Pagamento" className="form-input" />
-                    <input type="text" value={socialMediaInstagram} onChange={e => setSocialMediaInstagram(e.target.value)} placeholder="Instagram" className="form-input" />
-                    <input type="text" value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="CNPJ" className="form-input" />
-                </div>
-            </div>
-
-            {/* Alterar Senha */}
-            <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Alterar Senha Administrativa</h2>
-                    <button
-                        onClick={() => setShowPasswordChange(!showPasswordChange)}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-                    >
-                        {showPasswordChange ? 'Cancelar' : 'Alterar Senha'}
-                    </button>
-                </div>
-                {showPasswordChange && (
+            <div className="space-y-8">
+                {/* Horários de Funcionamento */}
+                <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Horários de Funcionamento</h2>
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Senha Atual
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showCurrentPassword ? 'text' : 'password'}
-                                    value={currentPassword}
-                                    onChange={(e) => setCurrentPassword(e.target.value)}
-                                    className="w-full rounded-md border border-purple-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600 px-3 py-2 pr-10"
-                                    placeholder="Digite sua senha atual"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                >
-                                    {showCurrentPassword ? (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    )}
-                                </button>
+                        {daysOfWeek.map(({ key, label }) => (
+                            <div key={key} className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0">
+                                <label className="flex items-center space-x-2 min-w-[150px] text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={businessHours[key]?.open ?? false}
+                                        onChange={(e) => handleBusinessHoursChange(key, 'open', e.target.checked)}
+                                        className="form-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500"
+                                    />
+                                    <span>{label}</span>
+                                </label>
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0 w-full">
+                                    <input
+                                        type="time"
+                                        value={businessHours[key]?.start ?? '18:00'}
+                                        onChange={(e) => handleBusinessHoursChange(key, 'start', e.target.value)}
+                                        className="form-input w-full sm:w-32 bg-white text-gray-900 border border-purple-300 focus:ring-purple-500 focus:border-purple-500"
+                                    />
+                                    <span className="hidden sm:inline text-gray-500">até</span>
+                                    <input
+                                        type="time"
+                                        value={businessHours[key]?.end ?? '22:00'}
+                                        onChange={(e) => handleBusinessHoursChange(key, 'end', e.target.value)}
+                                        className="form-input w-full sm:w-32 bg-white text-gray-900 border border-purple-300 focus:ring-purple-500 focus:border-purple-500"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Nova Senha
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showNewPassword ? 'text' : 'password'}
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                    className="w-full rounded-md border border-purple-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600 px-3 py-2 pr-10"
-                                    placeholder="Digite a nova senha (mín. 6 caracteres)"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowNewPassword(!showNewPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                >
-                                    {showNewPassword ? (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                Confirmar Nova Senha
-                            </label>
-                            <div className="relative">
-                                <input
-                                    type={showConfirmPassword ? 'text' : 'password'}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full rounded-md border border-purple-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600 px-3 py-2 pr-10"
-                                    placeholder="Confirme a nova senha"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                                >
-                                    {showConfirmPassword ? (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                                        </svg>
-                                    ) : (
-                                        <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                        <button
-                            onClick={handleChangePassword}
-                            disabled={isChangingPassword}
-                            className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50"
-                        >
-                            {isChangingPassword ? 'Alterando...' : 'Alterar Senha'}
-                        </button>
-
-                        {passwordMessage && (
-                            <div className={`p-3 rounded-md text-sm ${passwordMessage.includes('sucesso')
-                                ? 'bg-purple-900 text-purple-200'
-                                : 'bg-purple-950 text-purple-200'
-                                }`}>
-                                {passwordMessage}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {/* Título do Cardápio e Navegador */}
-            <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
-                <h2 className="text-xl font-semibold mb-4">Identidade Visual</h2>
-                <div className="flex flex-col gap-4">
-                    {/* Campo para a Logo */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">URL da Logo</label>
-                        <input
-                            type="text"
-                            value={logoUrl}
-                            onChange={e => setLogoUrl(e.target.value)}
-                            placeholder="https://exemplo.com/sua-logo.png"
-                            className="form-input"
-                        />
-                    </div>
-                    <hr className="border-gray-700" />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Título do Navegador (Aba)</label>
-                        <input
-                            type="text"
-                            value={browserTitle}
-                            onChange={e => setBrowserTitle(e.target.value)}
-                            placeholder="Título que aparece na aba do navegador"
-                            className="form-input"
-                        />
-                    </div>
-                    <hr className="border-gray-700" />
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Título Principal do Cardápio</label>
-                        <input
-                            type="text"
-                            value={menuTitle}
-                            onChange={e => setMenuTitle(e.target.value)}
-                            placeholder="Ex: Do'Cheff"
-                            className="form-input"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-1">Subtítulo do Cardápio</label>
-                        <input
-                            type="text"
-                            value={menuSubtitle}
-                            onChange={e => setMenuSubtitle(e.target.value)}
-                            placeholder="Ex: Escolha seus itens favoritos"
-                            className="form-input"
-                        />
+                        ))}
                     </div>
                 </div>
-            </div>
 
-            {/* Taxas de Entrega */}
-            <div className="mb-8 p-4 bg-[#262525] text-white border border-gray-700 rounded-lg shadow w-full">
-                <h2 className="text-xl font-semibold mb-4">Taxas de Entrega por Bairro</h2>
-                <div className="space-y-4">
-                    {deliveryFees.map((fee, index) => (
-                        <div key={index} className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 bg-[#1a1a1a] p-3 rounded-lg">
-                            <div className="flex-1 w-full">
-                                <div className="text-gray-300 font-medium">{fee.neighborhood}</div>
-                                <div className="text-purple-500">R$ {fee.fee.toFixed(2)}</div>
+                {/* Informações do Restaurante */}
+                <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Informações do Restaurante (Modal)</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input type="text" value={restaurantName} onChange={e => setRestaurantName(e.target.value)} placeholder="Nome do Restaurante" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={restaurantSubtitle} onChange={e => setRestaurantSubtitle(e.target.value)} placeholder="Subtítulo do Modal" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={addressStreet} onChange={e => setAddressStreet(e.target.value)} placeholder="Rua do Endereço" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={addressNumber} onChange={e => setAddressNumber(e.target.value)} placeholder="Número do Estabelecimento" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={addressCity} onChange={e => setAddressCity(e.target.value)} placeholder="Cidade/Estado" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="Telefone de Contato" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={paymentMethods} onChange={e => setPaymentMethods(e.target.value)} placeholder="Formas de Pagamento" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={socialMediaInstagram} onChange={e => setSocialMediaInstagram(e.target.value)} placeholder="Instagram" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={cnpj} onChange={e => setCnpj(e.target.value)} placeholder="CNPJ" className="form-input bg-white text-gray-900" />
+                        <input type="text" value={whatsappNumber} onChange={e => setWhatsappNumber(e.target.value)} placeholder="Número do WhatsApp para receber pedidos" className="form-input bg-white text-gray-900" />
+                    </div>
+                </div>
+
+                {/* Identidade Visual */}
+                <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Identidade Visual</h2>
+                    <div className="flex flex-col gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">URL da Logo</label>
+                            <input
+                                type="text"
+                                value={logoUrl}
+                                onChange={e => setLogoUrl(e.target.value)}
+                                placeholder="https://exemplo.com/sua-logo.png"
+                                className="form-input bg-white text-gray-900"
+                            />
+                        </div>
+                        <hr className="border-gray-200" />
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Título do Navegador (Aba)</label>
+                            <input
+                                type="text"
+                                value={browserTitle}
+                                onChange={e => setBrowserTitle(e.target.value)}
+                                placeholder="Título que aparece na aba do navegador"
+                                className="form-input bg-white text-gray-900"
+                            />
+                        </div>
+                        <hr className="border-gray-200" />
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Título Principal do Cardápio</label>
+                            <input
+                                type="text"
+                                value={menuTitle}
+                                onChange={e => setMenuTitle(e.target.value)}
+                                placeholder="Título do Cardápio"
+                                className="form-input bg-white text-gray-900"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Subtítulo do Cardápio</label>
+                            <input
+                                type="text"
+                                value={menuSubtitle}
+                                onChange={e => setMenuSubtitle(e.target.value)}
+                                placeholder="Ex: Escolha seus itens favoritos"
+                                className="form-input bg-white text-gray-900"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Taxas de Entrega */}
+                <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-800">Taxas de Entrega</h2>
+                    <div className="space-y-4">
+                        {deliveryFees.map((fee, index) => (
+                            <div key={index} className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 bg-gray-100 p-3 rounded-lg">
+                                <div className="flex-1 w-full">
+                                    <div className="text-gray-800 font-medium">{fee.neighborhood}</div>
+                                    <div className="text-purple-600">R$ {fee.fee.toFixed(2)}</div>
+                                </div>
+                                <button
+                                    onClick={() => handleRemoveFee(index)}
+                                    className="text-purple-600 hover:text-purple-700"
+                                >
+                                    Remover
+                                </button>
                             </div>
+                        ))}
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                            <input
+                                type="text"
+                                value={newNeighborhood}
+                                onChange={(e) => setNewNeighborhood(e.target.value)}
+                                placeholder="Nome do bairro"
+                                className="flex-1 rounded-md border border-purple-300 bg-white text-gray-900 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                            />
+                            <input
+                                type="number"
+                                value={newFee}
+                                onChange={(e) => setNewFee(e.target.value)}
+                                placeholder="Taxa (R$)"
+                                step="0.01"
+                                min="0"
+                                className="w-full sm:w-32 rounded-md border border-purple-300 bg-white text-gray-900 shadow-sm focus:border-purple-500 focus:ring-purple-500"
+                            />
                             <button
-                                onClick={() => handleRemoveFee(index)}
-                                className="text-purple-600 hover:text-purple-700"
+                                onClick={handleAddFee}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
                             >
-                                Remover
+                                Adicionar
                             </button>
                         </div>
-                    ))}
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-                        <input
-                            type="text"
-                            value={newNeighborhood}
-                            onChange={(e) => setNewNeighborhood(e.target.value)}
-                            placeholder="Nome do bairro"
-                            className="flex-1 rounded-md border border-purple-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600"
-                        />
-                        <input
-                            type="number"
-                            value={newFee}
-                            onChange={(e) => setNewFee(e.target.value)}
-                            placeholder="Taxa (R$)"
-                            step="0.01"
-                            min="0"
-                            className="w-full sm:w-32 rounded-md border border-purple-700 bg-[#262525] text-gray-100 shadow-sm focus:border-purple-600 focus:ring-purple-600"
-                        />
-                        <button
-                            onClick={handleAddFee}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-                        >
-                            Adicionar
-                        </button>
                     </div>
                 </div>
-            </div>
 
-            <div className="mt-6 w-full flex flex-col sm:flex-row gap-2 sm:gap-4">
-                <button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 w-full sm:w-auto"
-                >
-                    {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-                </button>
-                <button
-                    onClick={handleLogout}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors w-full sm:w-auto"
-                >
-                    Sair
-                </button>
+                {/* Botões de Ação */}
+                <div className="mt-6 flex gap-4">
+                    <button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50"
+                    >
+                        {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                    </button>
+                    <button
+                        onClick={handleLogout}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
+                    >
+                        Sair
+                    </button>
+                </div>
             </div>
 
             {saveMessage && (

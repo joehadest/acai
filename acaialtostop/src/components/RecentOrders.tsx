@@ -1,3 +1,5 @@
+// src/components/RecentOrders.tsx
+
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { FaShareAlt } from 'react-icons/fa';
@@ -275,7 +277,7 @@ export default function RecentOrders() {
 
   const handleCompartilharPedido = async (pedido: Pedido) => {
     try {
-      const pedidoText = `*Do'Cheff - Pedido #${pedido._id}*\n\n` +
+  const pedidoText = `*Pedido #${pedido._id}*\n\n` +
         `*Data:* ${new Date(pedido.data).toLocaleString()}\n` +
         `*Status:* ${getStatusText(pedido.status)}\n\n` +
         `*Cliente:*\n` +
@@ -299,11 +301,13 @@ export default function RecentOrders() {
         ).join('\n') + '\n\n' +
         `*Forma de Pagamento:* ${pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 'Dinheiro'}\n` +
         (pedido.formaPagamento?.toLowerCase() === 'pix' ? `*Chave PIX:* 8498729126\n` : '') +
+        `*Subtotal:* R$ ${(pedido.total - (pedido.endereco?.deliveryFee || 0)).toFixed(2)}\n` +
+        (pedido.tipoEntrega === 'entrega' ? `*Taxa de Entrega:* R$ ${(pedido.endereco?.deliveryFee || 0).toFixed(2)}\n` : '') +
         `*Total:* R$ ${pedido.total.toFixed(2)}`;
 
       if (navigator.share) {
         await navigator.share({
-          title: `Pedido Do'Cheff #${pedido._id}`,
+          title: `Pedido #${pedido._id}`,
           text: pedidoText
         });
       } else {
@@ -474,9 +478,10 @@ export default function RecentOrders() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleCompartilharPedido(pedido)}
-                    className="text-red-500 hover:text-red-400"
+                    className="bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2"
                   >
-                    <FaShareAlt className="w-5 h-5" />
+                    <FaShareAlt className="w-4 h-4" />
+                    Compartilhar
                   </motion.button>
                 </div>
               </div>
@@ -592,7 +597,7 @@ export default function RecentOrders() {
             >
               &times;
             </button>
-            <h3 className="text-xl font-bold mb-2 text-orange-600 text-center">Do'Cheff</h3>
+            <h3 className="text-xl font-bold mb-2 text-orange-600 text-center"></h3>
             <div className="mb-2 text-xs text-gray-700 text-center">
               <div><b>Pedido:</b> #{pedidoSelecionado._id?.slice(-6) || '-'}</div>
               <div><b>Data:</b> {pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</div>
@@ -668,10 +673,19 @@ export default function RecentOrders() {
               <span>R$ {pedidoSelecionado.total?.toFixed(2) || '-'}</span>
             </div>
             <button
-              className="w-full mt-4 bg-yellow-400 hover:bg-yellow-500 text-orange-900 font-bold py-2 rounded-lg transition-colors no-print"
-              onClick={() => window.print()}
+              className="w-full mt-4 bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2 no-print"
+              onClick={() => {
+                if (pedidoSelecionado) {
+                  const printWindow = window.open(`/api/pedidos?id=${pedidoSelecionado._id}&print=true`, '_blank');
+                  if (printWindow) {
+                    printWindow.onload = () => {
+                      printWindow.print();
+                    };
+                  }
+                }
+              }}
             >
-              Imprimir
+              🖨️ Imprimir Recibo
             </button>
           </div>
           <style jsx global>{`
@@ -716,4 +730,4 @@ export default function RecentOrders() {
       )}
     </div>
   );
-} 
+}

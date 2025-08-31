@@ -43,19 +43,12 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#262525] via-[#1a1a1a] to-[#0f0f0f] py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-            {/* Background Pattern */}
-            <div className="absolute inset-0 opacity-10">
-                <div className="absolute top-0 left-0 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
-                <div className="absolute top-0 right-0 w-72 h-72 bg-fuchsia-500 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-2000"></div>
-                <div className="absolute bottom-0 left-0 w-72 h-72 bg-purple-600 rounded-full mix-blend-multiply filter blur-xl animate-pulse animation-delay-4000"></div>
-            </div>
-
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className="relative max-w-md w-full space-y-8 z-10"
+                className="relative max-w-md w-full space-y-8 z-10 bg-white p-8 rounded-2xl shadow-lg border border-gray-200"
             >
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9 }}
@@ -63,28 +56,11 @@ export default function LoginPage() {
                     transition={{ duration: 0.6, delay: 0.2 }}
                     className="text-center"
                 >
-                    <div className="flex justify-center mb-6">
-                        <div className="relative">
-                            <Image
-                                src="/logo.jpg"
-                                alt="Logo Do'Cheff"
-                                width={80}
-                                height={80}
-                                className="rounded-full bg-white shadow-lg border-4 border-white"
-                                priority
-                            />
-                            <div className="absolute -top-2 -right-2 w-6 h-6 bg-purple-600 rounded-full flex items-center justify-center">
-                                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                    <h2 className="text-3xl font-bold text-white mb-2">
+                    <h2 className="text-3xl font-bold text-gray-800 mb-2">
                         Painel Administrativo
                     </h2>
-                    <p className="text-gray-400 text-sm">
-                        Acesse o painel de controle do Do'Cheff
+                    <p className="text-gray-500 text-sm">
+                        Acesse o painel de controle do Açaí Alto Stop
                     </p>
                 </motion.div>
 
@@ -97,7 +73,7 @@ export default function LoginPage() {
                 >
                     <div className="space-y-4">
                         <div className="relative">
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                                 Senha de Acesso
                             </label>
                             <div className="relative">
@@ -109,13 +85,13 @@ export default function LoginPage() {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     disabled={isLoading}
-                                    className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-800/30 disabled:cursor-not-allowed backdrop-blur-sm"
+                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 disabled:bg-gray-200 disabled:cursor-not-allowed"
                                     placeholder="Digite sua senha"
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-300 transition-colors"
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
                                 >
                                     {showPassword ? (
                                         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,13 +112,13 @@ export default function LoginPage() {
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3"
+                            className="bg-red-100 border border-red-200 rounded-lg p-3"
                         >
                             <div className="flex items-center">
-                                <svg className="w-5 h-5 text-purple-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <svg className="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                                 </svg>
-                                <span className="text-purple-400 text-sm">{error}</span>
+                                <span className="text-red-600 text-sm">{error}</span>
                             </div>
                         </motion.div>
                     )}
@@ -152,7 +128,7 @@ export default function LoginPage() {
                         whileTap={{ scale: 0.98 }}
                         type="submit"
                         disabled={isLoading}
-                        className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:from-purple-800 disabled:to-purple-900 disabled:cursor-not-allowed transition-all duration-200"
+                        className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-purple-400 disabled:cursor-not-allowed transition-all duration-200"
                     >
                         {isLoading ? (
                             <div className="flex items-center">
@@ -179,8 +155,8 @@ export default function LoginPage() {
                     transition={{ duration: 0.6, delay: 0.6 }}
                     className="text-center"
                 >
-                    <p className="text-xs text-gray-500">
-                        Sistema de gerenciamento Do'Cheff
+                    <p className="text-xs text-gray-400">
+                        Sistema de gerenciamento Açaí Alto Stop
                     </p>
                 </motion.div>
             </motion.div>

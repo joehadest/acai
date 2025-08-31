@@ -4,45 +4,38 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { MenuItem } from '../types/menu';
 import { CartItem, CartContextType } from '../types/cart';
-import { calculateItemPrice } from '../utils/priceCalculator'; // Importa a função centralizada
-import { menuItems } from '../data/menu';
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([]);
 
-    const addToCart = (item: MenuItem, quantity: number, observation?: string, size?: string, border?: string, extras?: string[]) => {
-        // Usa a função centralizada para obter o preço unitário correto.
-        const allPizzas = menuItems.filter(i => i.category === 'pizzas');
-        const finalPrice = calculateItemPrice(item, size, border, extras, observation, allPizzas);
-
-        // Verifica se um item idêntico (com as mesmas opções) já existe no carrinho.
+    const addToCart = (item: MenuItem, quantity: number, unitPrice: number, observation?: string, size?: string, border?: string, extras?: string[], flavors?: string[]) => {
         const existingItemIndex = items.findIndex(
             cartItem => cartItem.item._id === item._id &&
                 cartItem.size === size &&
                 cartItem.border === border &&
                 JSON.stringify(cartItem.extras?.sort()) === JSON.stringify(extras?.sort()) &&
+                JSON.stringify(cartItem.flavors?.sort()) === JSON.stringify(flavors?.sort()) &&
                 cartItem.observation === observation
         );
 
         if (existingItemIndex > -1) {
-            // Se já existe, apenas aumenta a quantidade.
             const updatedItems = [...items];
             updatedItems[existingItemIndex].quantity += quantity;
             setItems(updatedItems);
         } else {
-            // Se não existe, adiciona como um novo item com o preço já calculado.
             const newItem: CartItem = {
-                _id: `${item._id}-${Date.now()}`, // ID único para o item no carrinho
+                _id: `${item._id}-${Date.now()}`,
                 item,
                 quantity,
                 observation,
                 size,
                 border,
                 extras,
+                flavors, // Adicionado
                 name: item.name,
-                price: finalPrice // Armazena o preço final correto.
+                price: unitPrice 
             };
             setItems([...items, newItem]);
         }

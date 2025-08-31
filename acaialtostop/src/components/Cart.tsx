@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CartItem } from '../types/cart';
 import { FaTrash, FaTimes, FaMotorcycle, FaShoppingBag, FaArrowLeft } from 'react-icons/fa';
 import { useCart } from '../contexts/CartContext';
+import WhatsAppModal from './WhatsAppModal';
 
 // Hook para detectar se a tela é de um dispositivo móvel
 const useIsMobile = () => {
@@ -40,6 +41,10 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
     const [troco, setTroco] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState('');
+    const [whatsappNumber, setWhatsappNumber] = useState('');
+    const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+    const [whatsappLink, setWhatsappLink] = useState('');
+    const [successfulOrderId, setSuccessfulOrderId] = useState<string | null>(null);
     
     const [hasMounted, setHasMounted] = useState(false);
     const isMobile = useIsMobile();
@@ -60,18 +65,19 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
     }, []);
 
     useEffect(() => {
-        async function fetchDeliveryFees() {
+        async function fetchSettings() {
             try {
                 const res = await fetch('/api/settings');
                 const data = await res.json();
                 if (data.success) {
                     setDeliveryFees(data.data.deliveryFees || []);
+                    setWhatsappNumber(data.data.whatsappNumber || '');
                 }
             } catch (err) {
                 console.error("Erro ao buscar taxas de entrega:", err);
             }
         }
-        fetchDeliveryFees();
+        fetchSettings();
     }, []);
 
     const deliveryFee = useMemo(() => {
@@ -89,7 +95,6 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
             setError('Nome e telefone são obrigatórios.');
             return;
         }
-        // CORREÇÃO: Adicionada validação para o campo 'number'
         if (tipoEntrega === 'entrega' && (!customerAddress.street || !customerAddress.number || !customerAddress.neighborhood)) {
             setError('Bairro, Rua e Número são obrigatórios para entrega.');
             return;
@@ -111,6 +116,12 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
                 size: i.size,
                 border: i.border,
                 extras: i.extras,
+                flavors: i.flavors, // Adicionado
+                // Adicionando os títulos customizados
+                sizesTitle: i.item.sizesTitle,
+                flavorsTitle: i.item.flavorsTitle, // Adicionado
+                borderTitle: i.item.borderTitle,
+                extrasTitle: i.item.extrasTitle,
             })),
             total: total,
             tipoEntrega: tipoEntrega,
@@ -130,8 +141,38 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
             });
             const data = await res.json();
             if (data.success) {
-                onCheckout(data.pedidoId);
-                clearCart();
+                const message = `Olá, gostaria de fazer o seguinte pedido:\n\n` +
+                `*Pedido #${data.pedidoId}*\n\n` +
+                `*Cliente:*\n` +
+                `Nome: ${customerName}\n` +
+                `Telefone: ${customerPhone}\n\n` +
+                `*Itens:*\n` +
+                items.map(i => {
+                    let itemDetails = `${i.quantity}x ${i.item.name} (R$ ${i.price.toFixed(2)})`;
+                    if (i.size) itemDetails += `\n  - ${i.item.sizesTitle || 'Tamanho'}: ${i.size}`;
+                    if (i.flavors && i.flavors.length > 0) itemDetails += `\n  - ${i.item.flavorsTitle || 'Sabores'}: ${i.flavors.join(', ')}`;
+                    if (i.border) itemDetails += `\n  - ${i.item.borderTitle || 'Borda'}: ${i.border}`;
+                    if (i.extras && i.extras.length > 0) itemDetails += `\n  - ${i.item.extrasTitle || 'Extras'}: ${i.extras.join(', ')}`;
+                    if (i.observation) itemDetails += `\n  - Observação: ${i.observation}`;
+                    return itemDetails;
+                }).join('\n\n') + `\n\n` +
+                `*Subtotal:* R$ ${subtotal.toFixed(2)}\n` +
+                (tipoEntrega === 'entrega' ? `*Taxa de Entrega:* R$ ${deliveryFee.toFixed(2)}\n` : '') +
+                `*Total:* R$ ${total.toFixed(2)}\n\n` +
+                `*Forma de Pagamento:* ${formaPagamento}${formaPagamento === 'dinheiro' && troco ? ` (Troco para R$ ${troco})` : ''}\n\n` +
+                (tipoEntrega === 'entrega' ?
+                    `*Entregar em:*\n` +
+                    `Rua: ${customerAddress.street}, ${customerAddress.number}\n` +
+                    (customerAddress.complement ? `Complemento: ${customerAddress.complement}\n` : '') +
+                    `Bairro: ${customerAddress.neighborhood}\n` +
+                    (customerAddress.referencePoint ? `Ponto de Referência: ${customerAddress.referencePoint}\n` : '')
+                    : `*Tipo de Entrega:* Retirada no local\n`) +
+                `\n*Observações Gerais:* ${pedido.itens.map(i => i.observacao).filter(Boolean).join(', ')}`;
+                const encodedMessage = encodeURIComponent(message);
+                const link = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+                setWhatsappLink(link);
+                setSuccessfulOrderId(data.pedidoId); // Salva o ID do pedido
+                setShowWhatsAppModal(true); // Apenas abre o modal
             } else {
                 setError(data.message || 'Erro ao criar o pedido.');
             }
@@ -141,7 +182,15 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
             setIsSaving(false);
         }
     };
-    
+
+    const handleCloseWhatsAppModal = () => {
+        setShowWhatsAppModal(false);
+        if (successfulOrderId) {
+            onCheckout(successfulOrderId);
+            clearCart();
+        }
+    };
+
     const pageVariants = {
         initial: (direction: number) => ({ x: `${direction * 100}%`, opacity: 0 }),
         animate: { x: 0, opacity: 1 },
@@ -217,9 +266,10 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
                                                         <span className="font-semibold text-purple-600 whitespace-nowrap">R$ {(item.price * item.quantity).toFixed(2)}</span>
                                                     </div>
                                                     <div className="text-xs text-gray-500 mt-1 space-y-1">
-                                                        {item.size && <p><strong>Tamanho:</strong> {item.size}</p>}
-                                                        {item.border && <p><strong>Borda:</strong> {item.border}</p>}
-                                                        {item.extras && item.extras.length > 0 && <p><strong>Extras:</strong> {item.extras.join(', ')}</p>}
+                                                        {item.size && <p><strong>{item.item.sizesTitle || 'Tamanho'}:</strong> {item.size}</p>}
+                                                        {item.flavors && item.flavors.length > 0 && <p><strong>{item.item.flavorsTitle || 'Sabores'}:</strong> {item.flavors.join(', ')}</p>}
+                                                        {item.border && <p><strong>{item.item.borderTitle || 'Borda'}:</strong> {item.border}</p>}
+                                                        {item.extras && item.extras.length > 0 && <p><strong>{item.item.extrasTitle || 'Extras'}:</strong> {item.extras.join(', ')}</p>}
                                                         {item.observation && <p><strong>Obs:</strong> {item.observation}</p>}
                                                     </div>
                                                     <div className="flex items-center justify-between mt-3">
@@ -302,6 +352,11 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
                     </div>
                 )}
             </motion.div>
+            <WhatsAppModal
+                isOpen={showWhatsAppModal}
+                onClose={handleCloseWhatsAppModal}
+                whatsappLink={whatsappLink}
+            />
         </motion.div>
     );
 };

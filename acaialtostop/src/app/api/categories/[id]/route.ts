@@ -74,3 +74,27 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         return NextResponse.json({ success: false, message: `Erro no servidor: ${errorMessage}` }, { status: 500 });
     }
 }
+
+// NOVO: Handler DELETE adicionado aqui
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+    const { id } = params;
+
+    if (!id) {
+        return NextResponse.json({ success: false, error: 'ID da categoria é obrigatório.' }, { status: 400 });
+    }
+
+    try {
+        await connectDB();
+        const deletedCategory = await Category.findByIdAndDelete(id);
+
+        if (!deletedCategory) {
+            return NextResponse.json({ success: false, message: 'Categoria não encontrada' }, { status: 404 });
+        }
+
+        return NextResponse.json({ success: true, message: 'Categoria excluída com sucesso' });
+    } catch (error) {
+        console.error('Erro ao excluir categoria:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+        return NextResponse.json({ success: false, message: `Erro no servidor: ${errorMessage}` }, { status: 500 });
+    }
+}

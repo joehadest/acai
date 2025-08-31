@@ -78,7 +78,8 @@ export async function POST(request: Request) {
 	if (!body.value || !body.label) {
 		return NextResponse.json({ success: false, error: 'Campos obrigatórios.' }, { status: 400 });
 	}
-	const order = typeof body.order === 'number' ? body.order : 0;
+	const order = typeof body.order === 'number' 
+	? body.order : 0;
 	const allowHalfAndHalf = typeof body.allowHalfAndHalf === 'boolean' ? body.allowHalfAndHalf : false;
 	const result = await Category.create({ value: body.value, label: body.label, order, allowHalfAndHalf });
 	return NextResponse.json({ success: true, data: result });
@@ -101,14 +102,4 @@ export async function PUT(request: Request) {
 	return NextResponse.json({ success: true, data: result });
 }
 
-export async function DELETE(request: Request) {
-	await connectDB();
-	const { searchParams } = new URL(request.url);
-	const id = searchParams.get('id');
-
-	if (!id) {
-		return NextResponse.json({ success: false, error: 'ID obrigatório.' }, { status: 400 });
-	}
-	await Category.findByIdAndDelete(id);
-	return NextResponse.json({ success: true });
-}
+// REMOVIDO: Handler DELETE foi movido para [id]/route.ts

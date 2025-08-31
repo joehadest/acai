@@ -14,6 +14,7 @@ export default function Header() {
     const [businessHours, setBusinessHours] = useState<BusinessHoursConfig | null>(null);
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<any>({});
+    const [lastMenuUpdate, setLastMenuUpdate] = useState<Date | null>(null);
 
     const checkOpenStatus = useCallback(() => {
         if (!businessHours) return false;
@@ -53,6 +54,44 @@ export default function Header() {
         }
         fetchSettings();
     }, []);
+
+    // Função para buscar última atualização do menu
+    const fetchLastMenuUpdate = async () => {
+        try {
+            const res = await fetch('/api/menu');
+            if (res.ok) {
+                setLastMenuUpdate(new Date());
+            }
+        } catch (err) {
+            // Silêncio em caso de erro
+        }
+    };
+
+    // Buscar atualização inicial e configurar intervalo
+    useEffect(() => {
+        fetchLastMenuUpdate();
+        const interval = setInterval(fetchLastMenuUpdate, 30000); // A cada 30 segundos
+        return () => clearInterval(interval);
+    }, []);
+
+    // Função para formatar tempo relativo
+    const formatLastUpdate = (date: Date) => {
+        const now = new Date();
+        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+        if (diffInSeconds < 60) {
+            return 'Atualizado agora';
+        } else if (diffInSeconds < 3600) {
+            const minutes = Math.floor(diffInSeconds / 60);
+            return `Atualizado há ${minutes}min`;
+        } else if (diffInSeconds < 86400) {
+            const hours = Math.floor(diffInSeconds / 3600);
+            return `Atualizado há ${hours}h`;
+        } else {
+            const days = Math.floor(diffInSeconds / 86400);
+            return `Atualizado há ${days} dia${days > 1 ? 's' : ''}`;
+        }
+    };
 
     useEffect(() => {
         if (!businessHours) return;
@@ -127,6 +166,18 @@ export default function Header() {
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-4"
                 >
+                    {/* Indicador de atualização do menu */}
+                    {lastMenuUpdate && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-1 rounded-full"
+                        >
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                            <span>{formatLastUpdate(lastMenuUpdate)}</span>
+                        </motion.div>
+                    )}
+
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -171,7 +222,7 @@ export default function Header() {
                             <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6 rounded-t-2xl">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h2 className="text-xl font-bold text-white">{settings.restaurantName || "Do'Cheff"}</h2>
+                                        <h2 className="text-xl font-bold text-white">{settings.restaurantName || ""}</h2>
                                         <p className="text-purple-100 text-sm">{settings.restaurantSubtitle || "Informações do Restaurante"}</p>
                                     </div>
                                     <motion.button

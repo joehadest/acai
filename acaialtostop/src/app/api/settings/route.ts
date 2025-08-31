@@ -75,7 +75,8 @@ const settingsSchema = new mongoose.Schema({
     socialMediaInstagram: { type: String, default: "@docheff__" },
     cnpj: { type: String, default: "53.378.172/0001-60" },
     browserTitle: { type: String, default: "Do'Cheff - Cardápio Digital" },
-    logoUrl: { type: String, default: "/logo.jpg" }
+    logoUrl: { type: String, default: "/logo.jpg" },
+    whatsappNumber: { type: String, default: "" }
 });
 
 const Settings = mongoose.models.Settings || mongoose.model('Settings', settingsSchema);

@@ -85,6 +85,44 @@ const menuItemSchema = new mongoose.Schema({
         type: Map,
         of: Number,
         default: new Map()
+    },
+    // Campos de título para as opções
+    sizesTitle: {
+        type: String,
+        default: 'Tamanhos'
+    },
+    flavorsTitle: {
+        type: String,
+        default: 'Sabores'
+    },
+    extrasTitle: {
+        type: String,
+        default: 'Adicionais'
+    },
+    borderTitle: {
+        type: String,
+        default: 'Bordas'
+    },
+    maxSizes: {
+        type: Number,
+        default: 1
+    },
+    maxFlavors: {
+        type: Number,
+        default: 1
+    },
+    maxExtras: {
+        type: Number,
+        default: 1
+    },
+    flavorOptions: {
+        type: Map,
+        of: Number,
+        default: new Map()
+    },
+    isAvailable: {
+        type: Boolean,
+        default: true
     }
 }, {
     timestamps: true

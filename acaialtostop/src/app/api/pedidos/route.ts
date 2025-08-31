@@ -6,6 +6,7 @@ import webpush from 'web-push';
 import mongoose from 'mongoose';
 import { isRestaurantOpen, getRestaurantStatus } from '../../../utils/timeUtils';
 import type { BusinessHoursConfig } from '../../../utils/timeUtils';
+import { generateReceiptHTML } from '../../../utils/printUtils';
 
 interface PedidoDocument extends Omit<Pedido, '_id'> {
     _id: ObjectId;
@@ -69,17 +70,12 @@ async function checkRestaurantStatus(): Promise<boolean> {
 
         const settings = await Settings.findOne() || await Settings.create({});
         if (!settings) {
-            console.log('Nenhuma configuração encontrada no banco');
             return false;
         }
 
         // Usar a função utilitária para verificar o status
         const status = getRestaurantStatus(settings.businessHours as BusinessHoursConfig);
         
-        console.log('=== Verificação de Status na API de Pedidos ===');
-        console.log('Status detalhado:', status);
-        console.log('==============================================');
-
         return status.isOpen;
     } catch (error) {
         console.error('Erro ao verificar status do estabelecimento:', error);
@@ -92,16 +88,38 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
         const telefone = searchParams.get('telefone');
+        const print = searchParams.get('print');
 
         const { db } = await connectToDatabase();
         const collection = db.collection('pedidos');
 
         if (id) {
-            const pedido = await collection.findOne({ _id: new ObjectId(id) });
-            if (!pedido) {
-                return NextResponse.json({ success: false, message: 'Pedido não encontrado' }, { status: 404 });
+            try {
+                // Verificar se o ID é uma string não vazia
+                if (typeof id === 'string' && id.trim().length > 0) {
+                    const objectId = new ObjectId(id.trim());
+
+                    const pedido = await collection.findOne({ _id: objectId });
+                    if (!pedido) {
+                        return NextResponse.json({ success: false, message: 'Pedido não encontrado' }, { status: 404 });
+                    }
+
+                    if (print === 'true') {
+                        const html = generateReceiptHTML(pedido as unknown as Pedido);
+                        return new NextResponse(html, {
+                            headers: {
+                                'Content-Type': 'text/html; charset=utf-8',
+                            },
+                        });
+                    }
+
+                    return NextResponse.json({ success: true, data: { ...pedido, _id: pedido._id.toString() } });
+                } else {
+                    return NextResponse.json({ success: false, message: 'ID do pedido inválido' }, { status: 400 });
+                }
+            } catch (objectIdError) {
+                return NextResponse.json({ success: false, message: 'ID do pedido inválido' }, { status: 400 });
             }
-            return NextResponse.json({ success: true, data: pedido });
         }
 
         let query = {};
@@ -110,7 +128,14 @@ export async function GET(request: Request) {
         }
 
         const pedidos = await collection.find(query).sort({ data: -1 }).toArray();
-        return NextResponse.json({ success: true, data: pedidos });
+
+        // Converter ObjectIds para strings para evitar problemas de serialização
+        const pedidosFormatados = pedidos.map(pedido => ({
+            ...pedido,
+            _id: pedido._id.toString()
+        }));
+
+        return NextResponse.json({ success: true, data: pedidosFormatados });
     } catch (error) {
         console.error('Erro ao buscar pedidos:', error);
         return NextResponse.json(

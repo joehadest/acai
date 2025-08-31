@@ -7,6 +7,13 @@ import { Providers } from './providers'; // Importe o novo componente
 
 // ... (a função generateMetadata continua a mesma) ...
 export async function generateMetadata(): Promise<Metadata> {
+  if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_BASE_URL) {
+    // Mock para build sem API disponível
+    return {
+      title: "Açai Alto Stop - Cardápio Digital",
+      description: "Cardápio digital do Açai Alto Stop",
+    };
+  }
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/settings`, { cache: 'no-store' });
@@ -44,6 +51,8 @@ export default function RootLayout({
     return (
         <html lang="pt-BR">
             <head>
+                {/* ... (o head continua o mesmo) ... */}
+                <link rel="icon" href="/favicon.ico" />
                 {/* ... (o head continua o mesmo) ... */}
             </head>
             <body className="bg-gray-100 min-h-screen">
