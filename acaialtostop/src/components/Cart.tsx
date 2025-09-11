@@ -159,7 +159,8 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
                 `*Subtotal:* R$ ${subtotal.toFixed(2)}\n` +
                 (tipoEntrega === 'entrega' ? `*Taxa de Entrega:* R$ ${deliveryFee.toFixed(2)}\n` : '') +
                 `*Total:* R$ ${total.toFixed(2)}\n\n` +
-                `*Forma de Pagamento:* ${formaPagamento}${formaPagamento === 'dinheiro' && troco ? ` (Troco para R$ ${troco})` : ''}\n\n` +
+                `*Forma de Pagamento:* ${formaPagamento}${formaPagamento === 'dinheiro' && troco ? ` (Troco para R$ ${troco})` : ''}\n` +
+                `*Chave PIX para pagamento imediato:* 066.876.944-05\n\n` +
                 (tipoEntrega === 'entrega' ?
                     `*Entregar em:*\n` +
                     `Rua: ${customerAddress.street}, ${customerAddress.number}\n` +

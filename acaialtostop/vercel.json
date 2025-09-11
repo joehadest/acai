@@ -7,6 +7,6 @@
         }
     ],
     "env": {
-        "NEXT_PUBLIC_API_URL": "https://seu-dominio.vercel.app"
+        "NEXT_PUBLIC_API_URL": "https://acaialtostop.vercel.app"
     }
 }

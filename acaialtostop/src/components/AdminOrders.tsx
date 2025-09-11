@@ -2,8 +2,7 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
 import { FaShareAlt, FaVolumeUp, FaVolumeMute } from 'react-icons/fa'; // Ícones de volume
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
+// Removidos jsPDF e html2canvas (não utilizados)
 import NotificationComponent from './Notification';
 import { Pedido } from '../types/cart';
 
@@ -67,8 +66,9 @@ export default function AdminOrders() {
         }
     };
     const [pedidos, setPedidos] = useState<Pedido[]>([]);
+    const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null); // única declaração
     const [loading, setLoading] = useState(true);
-    const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
+    // removido pedidoExpandido
     const [mensagem, setMensagem] = useState<string | null>(null);
     const [mensagemCompartilhamento, setMensagemCompartilhamento] = useState<string | null>(null);
     const [phoneFilter, setPhoneFilter] = useState('');
@@ -84,6 +84,9 @@ export default function AdminOrders() {
         return true;
     });
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const modalRef = useRef<HTMLDivElement | null>(null);
+    const [modalAnim, setModalAnim] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     const toggleGlobalSound = () => {
         const newState = !globalSoundEnabled;
@@ -96,20 +99,20 @@ export default function AdminOrders() {
             const res = await fetch('/api/pedidos');
             const data = await res.json();
             if (data.success) {
-                const novosPedidos = data.data.filter((novoPedido: Pedido) =>
-                    !pedidos.some(pedido => pedido._id === novoPedido._id)
-                );
-
-                if (novosPedidos.length > 0) {
-                    setNotification(`🚨 Novo pedido #${novosPedidos[0]._id.slice(-6)} - ${novosPedidos[0].cliente?.nome || 'Cliente'}`);
-                    
-                    const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
-                    if (!notifyOrders.includes(novosPedidos[0]._id)) {
-                        notifyOrders.push(novosPedidos[0]._id);
-                        localStorage.setItem('notifyOrders', JSON.stringify(notifyOrders));
+                setPedidos(prev => {
+                    const novosPedidos = data.data.filter((novoPedido: Pedido) =>
+                        !prev.some(pedido => pedido._id === novoPedido._id)
+                    );
+                    if (novosPedidos.length > 0) {
+                        setNotification(`🚨 Novo pedido #${novosPedidos[0]._id.slice(-6)} - ${novosPedidos[0].cliente?.nome || 'Cliente'}`);
+                        const notifyOrders = JSON.parse(localStorage.getItem('notifyOrders') || '[]');
+                        if (!notifyOrders.includes(novosPedidos[0]._id)) {
+                            notifyOrders.push(novosPedidos[0]._id);
+                            localStorage.setItem('notifyOrders', JSON.stringify(notifyOrders));
+                        }
                     }
-                }
-                setPedidos(data.data);
+                    return data.data; // substitui pela lista completa atualizada
+                });
             }
         } catch (err) {
             console.error('Erro ao buscar pedidos:', err);
@@ -122,7 +125,8 @@ export default function AdminOrders() {
         fetchPedidos();
         const interval = setInterval(fetchPedidos, 30000);
         return () => clearInterval(interval);
-    }, [pedidos]);
+        // Sem dependências para não recriar o intervalo a cada atualização
+    }, []);
 
     // Buscar o título do menu
     useEffect(() => {
@@ -331,12 +335,41 @@ export default function AdminOrders() {
         return matchesPhone && matchesStatus;
     });
 
+    useEffect(() => {
+        if (pedidoSelecionado && modalRef.current) {
+            modalRef.current.focus();
+        }
+    }, [pedidoSelecionado]);
+
+    useEffect(() => {
+        const handleKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setPedidoSelecionado(null);
+        };
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, []);
+
+    useEffect(() => { setMounted(true); }, []);
+
+    useEffect(() => {
+        if (pedidoSelecionado) {
+            setModalAnim(false);
+            const id = requestAnimationFrame(() => setModalAnim(true));
+            // removido bloqueio de scroll
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return () => {
+                cancelAnimationFrame(id);
+            };
+        }
+    }, [pedidoSelecionado]);
+
     if (loading) return <div className="text-center py-10">Carregando pedidos...</div>;
     if (!pedidos.length) return <div className="text-center text-gray-500">Nenhum pedido recente.</div>;
+    if (!mounted) return null; // evita mismatch de hidratação
 
     return (
-        <div className="p-4 bg-gray-100 min-h-screen">
-            <h2 className="text-2xl font-bold mb-4 text-purple-600">Painel de Pedidos</h2>
+        <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 text-purple-600">Painel de Pedidos</h2>
 
             {/* Mensagem para Ativar o Som */}
             {/* ...nenhum botão de ativação de som... */}
@@ -351,30 +384,34 @@ export default function AdminOrders() {
                     message={notification} 
                     onClose={() => setNotification(null)}
                     type={notification.includes('✅') ? 'success' : notification.includes('🚨') ? 'warning' : 'info'}
-                    playSound={notification.includes('🚨') && globalSoundEnabled} // Só toca som para novos pedidos E se som global estiver ativado
+                    playSound={notification.includes('🚨') && globalSoundEnabled}
+                    position={notification.includes('🚨') ? 'top-center' : 'bottom-right'}
                 />
             )}
             {/* Filtros */}
-            <div className="mb-6 p-4 bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Controles</h3>
+            <div className="mb-6 p-4 sm:p-6 bg-white rounded-lg shadow-sm border border-gray-200">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-800">Controles</h3>
                     <button
                         onClick={toggleGlobalSound}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${
                             globalSoundEnabled 
                                 ? 'bg-green-100 text-green-700 hover:bg-green-200' 
                                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                         }`}
                         title={globalSoundEnabled ? 'Desativar sons de notificação' : 'Ativar sons de notificação'}
                     >
-                        <FaVolumeUp className={`text-lg ${globalSoundEnabled ? '' : 'opacity-50'}`} />
-                        <span className="text-sm font-medium">
+                        <FaVolumeUp className={`text-base ${globalSoundEnabled ? '' : 'opacity-50'}`} />
+                        <span className="hidden sm:inline">
                             {globalSoundEnabled ? 'Som Ativado' : 'Som Desativado'}
+                        </span>
+                        <span className="sm:hidden">
+                            {globalSoundEnabled ? 'Som ON' : 'Som OFF'}
                         </span>
                     </button>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Buscar por telefone
@@ -384,7 +421,7 @@ export default function AdminOrders() {
                             value={phoneFilter}
                             onChange={(e) => setPhoneFilter(e.target.value)}
                             placeholder="Digite o telefone do pedido"
-                            className="w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-purple-600 focus:ring-purple-600"
+                            className="w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-purple-600 focus:ring-purple-600 text-sm sm:text-base"
                         />
                     </div>
                     
@@ -395,7 +432,7 @@ export default function AdminOrders() {
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-purple-600 focus:ring-purple-600"
+                            className="w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-purple-600 focus:ring-purple-600 text-sm sm:text-base"
                         >
                             <option value="">Todos os status</option>
                             <option value="pendente">Pendente</option>
@@ -409,16 +446,16 @@ export default function AdminOrders() {
                 </div>
             </div>
             {/* Lista de Pedidos */}
-            <ul className="space-y-4">
+            <ul className="space-y-3 sm:space-y-4">
                 {filteredPedidos.map((pedido) => (
-                    <li key={pedido._id} className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <div className="font-semibold text-lg text-gray-900">Pedido <span className="text-purple-600">#{pedido._id.slice(-6)}</span></div>
-                            <div className="text-sm text-gray-500 mb-2">
+                    <li key={pedido._id} className="bg-white rounded-lg sm:rounded-xl shadow-sm p-4 sm:p-6 border border-gray-200 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-base sm:text-lg text-gray-900 mb-1">Pedido <span className="text-purple-600">#{pedido._id.slice(-6)}</span></div>
+                            <div className="text-xs sm:text-sm text-gray-500 mb-2">
                                 Data: {formatDate(pedido.data)}
                             </div>
-                            <div className="font-bold text-purple-600">Total: R$ {calcularTotal(pedido).toFixed(2)}</div>
-                            <div className="flex items-center gap-2 mt-2">
+                            <div className="font-bold text-purple-600 text-sm sm:text-base">Total: R$ {calcularTotal(pedido).toFixed(2)}</div>
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
                                 <div className={`inline-block px-2 py-1 rounded-full text-xs font-semibold 
                                     ${pedido.status === 'entregue' ? 'bg-green-100 text-green-800' : ''}
                                     ${pedido.status === 'pendente' ? 'bg-yellow-100 text-yellow-800' : ''}
@@ -439,22 +476,22 @@ export default function AdminOrders() {
                                 )}
                             </div>
                         </div>
-                        <div className="flex flex-col gap-2 mt-2 sm:mt-0">
+                        <div className="flex flex-col sm:flex-row gap-2 lg:flex-col lg:gap-2">
                             <button
-                                className="px-4 py-2 bg-purple-600 text-white rounded font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                                className="px-3 sm:px-4 py-2 bg-purple-600 text-white rounded font-semibold hover:bg-purple-700 transition-colors text-sm sm:text-base flex items-center justify-center"
                                 onClick={() => setPedidoSelecionado(pedido)}
                             >
                                 Ver Detalhes
                             </button>
                             <button
-                                className="flex-1 bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2"
+                                className="flex-1 bg-white border-2 border-gray-800 text-gray-900 font-mono text-xs sm:text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2"
                                 onClick={() => handleCompartilharPedido(pedido)}
                             >
-                                <FaShareAlt className="w-4 h-4" />
-                                Compartilhar
+                                <FaShareAlt className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Imprimir
                             </button>
                             <button
-                                className="px-4 py-2 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition-colors"
+                                className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition-colors text-sm sm:text-base"
                                 onClick={() => handleRemoverPedido(pedido._id)}
                             >
                                 Remover
@@ -471,119 +508,119 @@ export default function AdminOrders() {
 
             {/* Modal de detalhes */}
             {pedidoSelecionado && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={() => setPedidoSelecionado(null)}>
+                <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-white/10 backdrop-blur-sm px-4 md:px-8" onClick={(e) => { if (e.target === e.currentTarget) setPedidoSelecionado(null); }}>
                     <div
-                        className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full relative print-pedido border border-gray-200 max-h-[90vh] overflow-y-auto"
+                        ref={modalRef}
+                        className={`mt-24 sm:mt-28 bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-md md:max-w-xl lg:max-w-3xl 2xl:max-w-4xl border border-gray-200 h-auto max-h-none flex flex-col overflow-visible relative focus:outline-none transform transition-all duration-300 ease-out 
+                        ${modalAnim ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-[0.98]'}`}
                         onClick={e => e.stopPropagation()}
+                        tabIndex={-1}
+                        role="dialog"
+                        aria-modal="true"
                     >
-                        <button
-                            className="absolute top-2 right-2 text-purple-600 hover:text-purple-400 text-2xl focus:outline-none no-print"
-                            onClick={() => setPedidoSelecionado(null)}
-                            aria-label="Fechar modal de pedido"
-                        >
-                            &times;
-                        </button>
-                        <h3 className="text-2xl font-bold mb-4 text-purple-600 text-center"></h3>
-                        <div className="mb-4 text-sm text-gray-700 text-center space-y-1">
-                            <div><span className="text-gray-500">Pedido:</span> <span className="text-gray-900 font-semibold">#{pedidoSelecionado._id?.slice(-6) || '-'}</span></div>
-                            <div><span className="text-gray-500">Data:</span> <span className="text-gray-900">{pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</span></div>
-                            <div><span className="text-gray-500">Status:</span> <span className="font-semibold text-green-600">{getStatusText(pedidoSelecionado.status)}</span></div>
-                        </div>
-                        <div className="mb-4 text-sm text-gray-700 space-y-1">
-                            <h4 className="font-semibold text-gray-500 mb-1">Cliente</h4>
-                            <div><span className="text-gray-500">Nome:</span> <span className="text-gray-900">{pedidoSelecionado.cliente?.nome || '-'}</span></div>
-                            <div><span className="text-gray-500">Telefone:</span> <span className="text-gray-900">{pedidoSelecionado.cliente?.telefone || '-'}</span></div>
-                        </div>
-                        <div className="mb-4 text-sm text-gray-700 space-y-1">
-                            <h4 className="font-semibold text-gray-500 mb-1">Endereço de Entrega</h4>
-                            <div><span className="text-gray-500">Rua:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.street || '-'}</span></div>
-                            <div><span className="text-gray-500">Número:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.number || '-'}</span></div>
-                            {pedidoSelecionado.endereco?.address?.complement && <div><span className="text-gray-500">Compl:</span> <span className="text-gray-900">{pedidoSelecionado.endereco.address.complement}</span></div>}
-                            <div><span className="text-gray-500">Bairro:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.neighborhood || '-'}</span></div>
-                            <div><span className="text-gray-500">Ponto de Referência:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.address?.referencePoint || '-'}</span></div>
-                        </div>
-                        <div className="mb-4 text-sm text-gray-700">
-                            <span className="text-gray-500">Tempo estimado de entrega:</span> <span className="text-gray-900">{pedidoSelecionado.endereco?.estimatedTime || '-'}</span>
-                        </div>
-                        <div className="mb-4">
-                            <h4 className="font-semibold text-gray-500 mb-2 text-lg border-b border-gray-200 pb-1">Itens do Pedido</h4>
-                            <ul className="space-y-3">
-                                {pedidoSelecionado.itens.map((item, idx) => (
-                                    <li key={idx} className="text-sm text-gray-900 bg-gray-100 p-3 rounded-md">
-                                        <div className="flex justify-between font-bold">
-                                            <span>{item.quantidade}x {item.nome}</span>
-                                            <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
-                                        </div>
-                                        <div className="text-xs text-gray-600 mt-2 space-y-1 pl-2 border-l-2 border-purple-300">
-                                            {item.size !== undefined && item.size !== '' && (
-                                                <div>
-                                                    <strong className="text-gray-700">{item.sizesTitle || 'Tamanho'}:</strong> {Array.isArray(item.size) ? item.size.join(', ') : item.size}
-                                                </div>
-                                            )}
-                                            {item.flavors && item.flavors.length > 0 && <div><strong className="text-gray-700">{item.flavorsTitle || 'Sabores'}:</strong> {item.flavors.join(', ')}</div>}
-                                            {item.border && <div><strong className="text-gray-700">{item.borderTitle || 'Borda'}:</strong> {item.border}</div>}
-                                            {item.extras && item.extras.length > 0 && <div><strong className="text-gray-700">{item.extrasTitle || 'Extras'}:</strong> {item.extras.join(', ')}</div>}
-                                            {item.observacao && <div><strong className="text-gray-700">Observações:</strong> {item.observacao}</div>}
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                        {pedidoSelecionado.observacoes && (
-                            <div className="mb-4 text-sm text-gray-700">
-                                <h4 className="font-semibold text-gray-500 mb-1">Observações</h4>
-                                <div>{pedidoSelecionado.observacoes}</div>
-                            </div>
-                        )}
-                        <div className="flex justify-between text-sm text-gray-700 border-t border-gray-200 pt-2 mb-2">
-                            <span>Taxa de Entrega:</span>
-                            <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0,00'}</span>
-                        </div>
-                        <div className="mb-4 text-sm text-gray-700 space-y-1">
-                            <h4 className="font-semibold text-gray-500 mb-1">Pagamento</h4>
-                            <div><span className="text-gray-500">Forma:</span> <span className="text-gray-900">{
-                                pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' :
-                                    pedidoSelecionado.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' :
-                                        'Dinheiro'
-                            }</span></div>
-                            {pedidoSelecionado.formaPagamento?.toLowerCase() === 'dinheiro' && (
-                                <div><span className="text-gray-500">Troco para:</span> <span className="text-gray-900">R$ {pedidoSelecionado.troco || '-'}</span></div>
-                            )}
-                        </div>
-                        <div className="font-bold text-purple-600 mt-2 text-2xl flex justify-between items-center border-t border-gray-200 pt-4">
-                            <span>Total:</span>
-                            <span>R$ {calcularTotal(pedidoSelecionado).toFixed(2)}</span>
-                        </div>
-                        <div className="mt-4 flex gap-2">
+                        {(() => { const p = pedidoSelecionado; return (
+                        <>
+                        <header className="px-4 sm:px-6 pt-4 pb-3 border-b border-gray-200 sticky top-0 bg-white z-10">
                             <button
-                                className="flex-1 bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2 no-print"
-                                onClick={() => {
-                                    if (pedidoSelecionado) {
-                                        const printWindow = window.open(`/api/pedidos?id=${pedidoSelecionado._id}&print=true`, '_blank');
-                                        if (printWindow) {
-                                            printWindow.onload = () => {
-                                                printWindow.print();
-                                            };
-                                        }
-                                    }
-                                }}
-                            >
-                                🖨️ Imprimir Recibo
-                            </button>
-                            {getNextStatus(pedidoSelecionado.status) && (
+                                className="absolute top-2 right-2 text-purple-600 hover:text-purple-400 text-xl sm:text-2xl focus:outline-none no-print"
+                                onClick={() => setPedidoSelecionado(null)}
+                                aria-label="Fechar modal de pedido"
+                            >&times;</button>
+                            <h3 className="text-lg md:text-2xl font-bold text-purple-600 text-center pr-8">Pedido #{p._id?.slice(-6)}</h3>
+                            <div className="mt-2 flex flex-wrap justify-center gap-4 text-xs sm:text-sm text-gray-600">
+                                <div><span className="text-gray-500">Data:</span> <span className="text-gray-900">{p.data ? formatDate(p.data) : '-'}</span></div>
+                                <div><span className="text-gray-500">Status:</span> <span className="font-semibold text-green-600">{getStatusText(p.status)}</span></div>
+                                <div><span className="text-gray-500">Entrega:</span> <span className="text-gray-900">{p.endereco?.estimatedTime || '-'}</span></div>
+                            </div>
+                        </header>
+                        <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-white sticky top-[68px] z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-xs uppercase tracking-wide text-gray-500">Total</span>
+                                <span className="text-xl md:text-2xl font-bold text-purple-600">R$ {calcularTotal(p).toFixed(2)}</span>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                                {getNextStatus(p.status) && (
+                                    <button
+                                        onClick={() => updateOrderStatus(p._id, getNextStatus(p.status)!)}
+                                        disabled={updatingStatus === p._id}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
+                                    >
+                                        {updatingStatus === p._id ? 'Atualizando...' : `Mover para ${getStatusText(getNextStatus(p.status)!)}`}
+                                    </button>
+                                )}
                                 <button
-                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-lg transition-colors no-print"
-                                    onClick={() => {
-                                        updateOrderStatus(pedidoSelecionado._id, getNextStatus(pedidoSelecionado.status)!);
-                                        setPedidoSelecionado(null);
-                                    }}
+                                    onClick={() => setPedidoSelecionado(null)}
+                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
                                 >
-                                    Atualizar Status
+                                    Fechar
                                 </button>
-                            )}
+                            </div>
                         </div>
-                    </div>
-                    <style jsx global>{`
+                        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6">
+                            <div className="grid lg:grid-cols-2 gap-6">
+                                <section className="space-y-4">
+                                    <div className="text-xs sm:text-sm text-gray-700 space-y-1">
+                                        <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Cliente</h4>
+                                        <div><span className="text-gray-500">Nome:</span> <span className="text-gray-900">{p.cliente?.nome || '-'}</span></div>
+                                        <div><span className="text-gray-500">Telefone:</span> <span className="text-gray-900">{p.cliente?.telefone || '-'}</span></div>
+                                    </div>
+                                    <div className="text-xs sm:text-sm text-gray-700 space-y-1">
+                                        <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Endereço</h4>
+                                        <div><span className="text-gray-500">Rua:</span> <span className="text-gray-900">{p.endereco?.address?.street || '-'}</span></div>
+                                        <div><span className="text-gray-500">Número:</span> <span className="text-gray-900">{p.endereco?.address?.number || '-'}</span></div>
+                                        {p.endereco?.address?.complement && <div><span className="text-gray-500">Compl:</span> <span className="text-gray-900">{p.endereco.address.complement}</span></div>}
+                                        <div><span className="text-gray-500">Bairro:</span> <span className="text-gray-900">{p.endereco?.address?.neighborhood || '-'}</span></div>
+                                        <div><span className="text-gray-500">Referência:</span> <span className="text-gray-900">{p.endereco?.address?.referencePoint || '-'}</span></div>
+                                    </div>
+                                    {p.observacoes && (
+                                        <div className="text-xs sm:text-sm text-gray-700">
+                                            <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Observações</h4>
+                                            <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-[11px] sm:text-xs leading-snug">{p.observacoes}</div>
+                                        </div>
+                                    )}
+                                    <div className="text-xs sm:text-sm text-gray-700 space-y-1">
+                                        <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Pagamento</h4>
+                                        <div><span className="text-gray-500">Forma:</span> <span className="text-gray-900">{
+                                            p.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' :
+                                                p.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' :
+                                                    'Dinheiro'
+                                        }</span></div>
+                                        {p.formaPagamento?.toLowerCase() === 'dinheiro' && (
+                                            <div><span className="text-gray-500">Troco para:</span> <span className="text-gray-900">R$ {p.troco || '-'}</span></div>
+                                        )}
+                                        <div><span className="text-gray-500">Taxa:</span> <span className="text-gray-900">R$ {p.endereco?.deliveryFee?.toFixed(2) || '0,00'}</span></div>
+                                    </div>
+                                </section>
+                                <section className="space-y-4 lg:col-span-1">
+                                    <div>
+                                        <h4 className="font-semibold text-gray-500 mb-2 text-sm border-b border-gray-200 pb-1 uppercase tracking-wide">Itens do Pedido</h4>
+                                        <ul className="space-y-3">
+                                            {p.itens.map((item, idx) => (
+                                                <li key={idx} className="text-sm text-gray-900 bg-gray-50 border border-gray-200 p-3 rounded-md shadow-xs">
+                                                    <div className="flex justify-between font-semibold">
+                                                        <span>{item.quantidade}x {item.nome}</span>
+                                                        <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="text-[11px] sm:text-xs text-gray-600 mt-2 space-y-1 pl-2 border-l-2 border-purple-300">
+                                                        {item.size !== undefined && item.size !== '' && (
+                                                            <div>
+                                                                <strong className="text-gray-700">{item.sizesTitle || 'Tamanho'}:</strong> {Array.isArray(item.size) ? item.size.join(', ') : item.size}
+                                                            </div>
+                                                        )}
+                                                        {item.flavors && item.flavors.length > 0 && <div><strong className="text-gray-700">{item.flavorsTitle || 'Sabores'}:</strong> {item.flavors.join(', ')}</div>}
+                                                        {item.border && <div><strong className="text-gray-700">{item.borderTitle || 'Borda'}:</strong> {item.border}</div>}
+                                                        {item.extras && item.extras.length > 0 && <div><strong className="text-gray-700">{item.extrasTitle || 'Extras'}:</strong> {item.extras.join(', ')}</div>}
+                                                        {item.observacao && <div><strong className="text-gray-700">Obs:</strong> {item.observacao}</div>}
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </section>
+                            </div>
+                        </div>
+                        </> ); })()}
+                        <style jsx global>{`
             @media print {
               body * {
                 visibility: hidden !important;
@@ -628,6 +665,7 @@ export default function AdminOrders() {
               }
             }
           `}</style>
+                    </div>
                 </div>
             )}
         </div>

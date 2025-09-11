@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import AdminOrders from '@/components/AdminOrders';
 import AdminSettings from '@/components/AdminSettings';
 import AdminMenu from '@/components/AdminMenu';
+import AdminHeader from '@/components/AdminHeader';
 
 export default function AdminPanel() {
     // Função para sair do painel admin
@@ -34,42 +35,12 @@ export default function AdminPanel() {
     }, [activeTab]);
 
     return (
-        <main className="min-h-screen bg-gray-100 text-gray-900">
-            <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="flex justify-end mb-4">
-                    <button
-                        onClick={handleLogout}
-                        className="px-4 py-2 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition-colors"
-                    >
-                        Sair
-                    </button>
+        <main className="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
+            <AdminHeader active={activeTab} onChange={setActiveTab} onLogout={handleLogout} />
+            <div className="flex-1 w-full px-2 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-3 sm:py-5 lg:py-8">
+                <div className="w-full bg-white/60 backdrop-blur-sm shadow-sm ring-1 ring-gray-200 p-3 sm:p-4 md:p-6 rounded-none sm:rounded-lg">
+                    {activeTab === 'config' ? <AdminSettings /> : activeTab === 'menu' ? <AdminMenu /> : <AdminOrders />}
                 </div>
-                <div className="mb-6 border-b border-gray-200">
-                    <div className="flex space-x-4">
-                        <button
-                            onClick={() => setActiveTab('config')}
-                            className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'config' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Configurações
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('menu')}
-                            className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'menu' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Cardápio
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('pedidos')}
-                            className={`px-4 py-2 text-sm font-medium transition-colors duration-200 ${activeTab === 'pedidos' ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            Pedidos
-                        </button>
-                    </div>
-                </div>
-
-                {activeTab === 'config' ? <AdminSettings /> :
-                    activeTab === 'menu' ? <AdminMenu /> :
-                        <AdminOrders />}
             </div>
         </main>
     );

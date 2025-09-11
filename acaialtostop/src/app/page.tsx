@@ -25,12 +25,12 @@ export default function Home() {
 
     return (
         <main className="min-h-screen bg-gray-100">
-            <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 md:py-8">
                 <div className="flex justify-center mb-8">
                     <div className="inline-flex rounded-lg border border-gray-200 p-1 bg-white shadow-sm">
                         <button
                             onClick={() => setActiveTab('menu')}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 text-gray-600 hover:text-gray-900 ${activeTab === 'menu' ? 'bg-gray-100 text-purple-600' : ''}`}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${activeTab === 'menu' ? 'bg-gray-100 text-purple-600' : 'text-gray-600 hover:text-gray-900'}`}
                         >
                             Cardápio
                         </button>
@@ -39,7 +39,7 @@ export default function Home() {
                                 setActiveTab('orders');
                                 setHasNotification(false);
                             }}
-                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 text-gray-600 hover:text-gray-900 ${activeTab === 'orders' ? 'bg-gray-100 text-purple-600' : ''} flex items-center gap-1`}
+                            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200 flex items-center gap-1 ${activeTab === 'orders' ? 'bg-gray-100 text-purple-600' : 'text-gray-600 hover:text-gray-900'}`}
                         >
                             Pedidos
                             {hasNotification && (

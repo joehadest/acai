@@ -8,6 +8,7 @@ interface NotificationProps {
     type?: 'info' | 'success' | 'warning' | 'error';
     autoClose?: boolean;
     playSound?: boolean;
+    position?: 'bottom-right' | 'top-center';
 }
 
 export default function Notification({ 
@@ -15,7 +16,8 @@ export default function Notification({
     onClose, 
     type = 'info',
     autoClose = true,
-    playSound = true
+    playSound = true,
+    position = 'bottom-right'
 }: NotificationProps) {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [isMuted, setIsMuted] = useState(() => {
@@ -132,6 +134,10 @@ export default function Notification({
         }
     };
 
+    const basePos = position === 'top-center'
+        ? 'fixed top-4 left-1/2 -translate-x-1/2'
+        : 'fixed bottom-4 right-4';
+
     return (
         <>
             {/* Elemento de áudio oculto */}
@@ -142,7 +148,7 @@ export default function Notification({
                 style={{ display: 'none' }}
             />
             
-            <div className={`fixed bottom-4 right-4 ${getTypeStyles()} px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up border z-50 max-w-sm`}>
+            <div className={`${basePos} ${getTypeStyles()} px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up border z-50 max-w-sm`}>
                 <FaBell className="text-xl flex-shrink-0" />
                 <span className="flex-1 text-sm font-medium">
                     {autoplayBlocked ? `${message} (Clique para ativar som)` : message}

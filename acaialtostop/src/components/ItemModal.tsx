@@ -44,6 +44,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
     const [isHalf, setIsHalf] = useState(false);
     const [half1, setHalf1] = useState<MenuItem | null>(item);
     const [half2, setHalf2] = useState<MenuItem | null>(null);
+    const [showScrollHint, setShowScrollHint] = useState(false);
     
     const maxExtras = item.maxExtras ?? 2;
     const maxSizes = item.maxSizes ?? 1;
@@ -59,6 +60,15 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
         setSelectedExtras([]);
         setObservation('');
         setQuantity(1);
+    }, [item]);
+
+    useEffect(() => {
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+        if (isMobile) {
+            setShowScrollHint(true);
+            const timer = setTimeout(() => setShowScrollHint(false), 3500);
+            return () => clearTimeout(timer);
+        }
     }, [item]);
 
     const itemCategory = categories.find(c => c.value === item.category);
@@ -184,117 +194,277 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
     return (
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-                variants={overlayVariants} initial="hidden" animate="visible" exit="exit" onClick={onClose}
+                className="fixed inset-0 z-50 flex items-start justify-center p-4 md:p-6 bg-gradient-to-b from-black/30 via-black/20 to-black/30 backdrop-blur-sm overflow-y-auto"
+                variants={overlayVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                onClick={onClose}
             >
                 <motion.div
-                    className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto text-gray-900"
-                    variants={modalVariants} onClick={e => e.stopPropagation()}
+                    className="relative w-full max-w-5xl bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-purple-200 flex flex-col max-h-[92vh]"
+                    variants={modalVariants}
+                    onClick={e => e.stopPropagation()}
                 >
-                    <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-xl font-bold text-gray-900">{item.name}</h3>
-                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} className="text-gray-400 hover:text-gray-700" onClick={onClose}>
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    {/* Hint flutuante mobile (dentro do modal agora) */}
+                    <AnimatePresence>
+                      {showScrollHint && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.25 }}
+                          className="md:hidden absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+                          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+                        >
+                          <div className="bg-purple-600/95 backdrop-blur text-white text-xs font-medium px-3 py-1.5 rounded-full shadow-lg flex items-center gap-2">
+                            <span>Role para baixo para ver as opções</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                    {/* Cabeçalho Sticky */}
+                    <div className="sticky top-0 z-10 flex items-start justify-between gap-4 px-6 py-4 border-b bg-white/90 backdrop-blur rounded-t-2xl">
+                        <div>
+                            <h3 className="text-2xl font-bold text-purple-700 leading-tight">{item.name}</h3>
+                            {itemCategory && <p className="text-xs mt-1 font-medium uppercase tracking-wide text-purple-500">{itemCategory.label}</p>}
+                        </div>
+                        <motion.button
+                            whileHover={{ scale: 1.1, rotate: 90 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={onClose}
+                            className="p-2 rounded-full bg-purple-100 text-purple-700 hover:bg-purple-200 transition-colors"
+                            aria-label="Fechar"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </motion.button>
                     </div>
 
-                    {item.image && <div className="relative h-48 mb-4"><img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-lg" /></div>}
-                    <p className="text-gray-600 mb-4">{item.description}</p>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                        {item.ingredients && item.ingredients.length > 0 && <div className="bg-gray-100 p-4 rounded-lg"><label className="block text-sm font-medium text-gray-700 mb-2">Ingredientes</label><p className="text-gray-500 text-sm">{item.ingredients.join(', ')}</p></div>}
-                        
-                        {item.sizes && Object.keys(item.sizes).length > 0 && (
-                            <div className="bg-gray-100 p-4 rounded-lg">
-                                <label className="block text-sm font-medium text-gray-700 mb-3">{item.sizesTitle || 'Tamanhos'}</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {Object.entries(item.sizes).map(([sizeKey, price]) => {
-                                        const isSelected = selectedSizes.includes(sizeKey);
-                                        const isDisabled = !isSelected && selectedSizes.length >= maxSizes;
-                                        return (
-                                            <button
-                                                key={sizeKey}
-                                                type="button"
-                                                onClick={() => toggleSize(sizeKey)}
-                                                disabled={isDisabled}
-                                                className={`p-3 rounded-lg border-2 transition-all text-left ${isSelected ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-gray-200 hover:border-purple-600 text-gray-700'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            >
-                                                <div className="font-semibold">{sizeKey}</div>
-                                                <div className="text-sm">{price > 0 ? `+ R$ ${price.toFixed(2)}` : 'Incluído'}</div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-2">Máximo de {maxSizes} tamanhos por pedido.</div>
+                    {/* Conteúdo Scrollável */}
+                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6 custom-scrollbar">
+                        {/* Hero / Imagem e descrição */}
+                        <div className="grid md:grid-cols-5 gap-6">
+                          {item.image && (
+                            <div className="md:col-span-2">
+                              <div className="relative aspect-video rounded-xl overflow-hidden ring-1 ring-purple-200/70 shadow-sm">
+                                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                              </div>
                             </div>
-                        )}
-
-                        {item.flavorOptions && Object.keys(item.flavorOptions).length > 0 && (
-                            <div className="bg-gray-100 p-4 rounded-lg">
-                                <label className="block text-sm font-medium text-gray-700 mb-3">{item.flavorsTitle || 'Sabores'}</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {Object.entries(item.flavorOptions).map(([flavorKey, price]) => {
-                                        const isSelected = selectedFlavors.includes(flavorKey);
-                                        const isDisabled = !isSelected && selectedFlavors.length >= maxFlavors;
-                                        return (
-                                            <button
-                                                key={flavorKey}
-                                                type="button"
-                                                onClick={() => toggleFlavor(flavorKey)}
-                                                disabled={isDisabled}
-                                                className={`p-3 rounded-lg border-2 transition-all text-left ${isSelected ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-gray-200 hover:border-purple-600 text-gray-700'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                            >
-                                                <div className="font-semibold">{flavorKey}</div>
-                                                <div className="text-sm">{price > 0 ? `+ R$ ${price.toFixed(2)}` : 'Incluído'}</div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-2">Máximo de {maxFlavors} sabores por pedido.</div>
-                            </div>
-                        )}
-                        
-                        {itemCategory?.allowHalfAndHalf && allPizzas && (
-                            <div className={`p-4 rounded-lg transition-all duration-300 ${isHalf ? 'bg-purple-50 border-2 border-purple-400' : 'bg-gray-100 border border-gray-200'}`}>
-                                <label className="flex items-center gap-3 mb-3 cursor-pointer group">
-                                    <input type="checkbox" checked={isHalf} onChange={e => setIsHalf(e.target.checked)} className="form-checkbox h-6 w-6 text-purple-600 bg-gray-200 border-gray-400 rounded focus:ring-purple-500"/>
-                                    <span className={`text-lg font-medium ${isHalf ? 'text-purple-700' : 'text-gray-700'}`}>Montar Meio a Meio</span>
-                                </label>
-                                {isHalf && <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3"><select className="form-input" value={half1?.name || ''} onChange={e => setHalf1(allPizzas.find(p => p.name === e.target.value) || null)}>{allPizzas.map(p => <option key={p._id} value={p.name}>{p.name}</option>)}</select><select className="form-input" value={half2?.name || ''} onChange={e => setHalf2(allPizzas.find(p => p.name === e.target.value) || null)}><option value="">Selecione o 2º sabor</option>{allPizzas.filter(p => p.name !== half1?.name).map(p => <option key={p._id} value={p.name}>{p.name}</option>)}</select></motion.div>}
-                            </div>
-                        )}
-
-                        {item.borderOptions && Object.keys(item.borderOptions).length > 0 && (
-                            <div className="bg-gray-100 p-4 rounded-lg">
-                                <label className="block text-sm font-medium text-gray-700 mb-3">{item.borderTitle || 'Borda'}</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <button type="button" onClick={() => setSelectedBorder('')} className={`p-3 rounded-lg border-2 transition-all ${!selectedBorder ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-gray-200 hover:border-purple-600 text-gray-700'}`}><div className="font-semibold">Sem Borda</div></button>
-                                    {Object.entries(item.borderOptions).map(([key, value]) => <button key={key} type="button" onClick={() => setSelectedBorder(key)} className={`p-3 rounded-lg border-2 transition-all ${selectedBorder === key ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-gray-200 hover:border-purple-600 text-gray-700'}`}><div className="font-semibold">{key}</div><div className="text-sm">+ R$ {value.toFixed(2)}</div></button>)}
-                                </div>
-                            </div>
-                        )}
-
-                        {item.extraOptions && Object.keys(item.extraOptions).length > 0 && (
-                            <div className="bg-gray-100 p-4 rounded-lg">
-                                <label className="block text-sm font-medium text-gray-700 mb-3">{item.extrasTitle || 'Extras'}</label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    {Object.entries(item.extraOptions).map(([key, value]) => {
-                                        const isSelected = selectedExtras.includes(key);
-                                        const isDisabled = !isSelected && selectedExtras.length >= maxExtras;
-                                        return <button key={key} type="button" onClick={() => toggleExtra(key)} className={`p-3 rounded-lg border-2 transition-all ${isSelected ? 'border-purple-600 bg-purple-50 text-purple-700' : 'border-gray-200 hover:border-purple-600 text-gray-700'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={isDisabled}><div className="font-semibold">{key}</div><div className="text-sm">+ R$ {value.toFixed(2)}</div></button>;
-                                    })}
-                                </div>
-                                <div className="text-xs text-gray-500 mt-2">Máximo de {maxExtras} extras por pedido.</div>
-                            </div>
-                        )}
-
-                        <div className="bg-gray-100 p-4 rounded-lg"><label className="block text-sm font-medium text-gray-700 mb-3">Quantidade</label><div className="flex items-center justify-center gap-4"><button type="button" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-10 h-10 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700">-</button><span className="text-2xl font-bold">{quantity}</span><button type="button" onClick={() => setQuantity(q => q + 1)} className="w-10 h-10 rounded-full bg-purple-600 hover:bg-purple-700 text-white">+</button></div></div>
-                        <div className="bg-gray-100 p-4 rounded-lg"><label className="block text-sm font-medium text-gray-700 mb-3">Observação (opcional)</label><textarea value={observation} onChange={(e) => setObservation(e.target.value)} placeholder="Ex: Sem cebola, bem passada..." className="form-input" rows={3}/></div>
-                        <div className="flex justify-between items-center pt-4">
-                            <div><span className="text-sm text-gray-500">Total</span><div className="text-2xl font-bold text-purple-600">R$ {calculateTotal().toFixed(2)}</div></div>
-                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="px-8 py-3 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400" disabled={isHalf && (!half1 || !half2)}>Adicionar</motion.button>
+                          )}
+                          <div className={item.image ? 'md:col-span-3 flex flex-col' : 'md:col-span-5 flex flex-col'}>
+                            <p className="text-gray-600 leading-relaxed">
+                              {item.description}
+                            </p>
+                            {item.ingredients && item.ingredients.length > 0 && (
+                              <div className="mt-4 bg-purple-50/60 border border-purple-200 rounded-lg p-4 text-sm">
+                                <span className="font-semibold text-purple-700 block mb-1">Ingredientes</span>
+                                <p className="text-purple-700/80">{item.ingredients.join(', ')}</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                    </form>
-                </motion.div>
+
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                          <div className="grid md:grid-cols-2 gap-6">
+                            {/* Coluna 1 */}
+                            <div className="space-y-6">
+                              {item.sizes && Object.keys(item.sizes).length > 0 && (
+                                <div className="p-5 bg-gray-50 rounded-xl border border-gray-200/80 shadow-sm">
+                                  <label className="block text-sm font-semibold text-gray-800 mb-4 tracking-wide">{item.sizesTitle || 'Tamanhos'}</label>
+                                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {Object.entries(item.sizes).map(([sizeKey, price]) => {
+                                      const isSelected = selectedSizes.includes(sizeKey);
+                                      const isDisabled = !isSelected && selectedSizes.length >= maxSizes;
+                                      return (
+                                        <button
+                                          key={sizeKey}
+                                          type="button"
+                                          onClick={() => toggleSize(sizeKey)}
+                                          disabled={isDisabled}
+                                          className={`group relative p-3 rounded-lg border-2 text-left transition-all flex flex-col gap-1 ${isSelected ? 'border-purple-500 bg-purple-50 shadow-inner' : 'border-gray-200 hover:border-purple-400 bg-white'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                          <span className="font-semibold text-sm text-gray-800 group-hover:text-purple-700">{sizeKey}</span>
+                                          <span className="text-xs text-gray-500">{price > 0 ? `+ R$ ${price.toFixed(2)}` : 'Incluído'}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-3">Máximo de {maxSizes} tamanho(s).</div>
+                                </div>
+                              )}
+
+                              {item.flavorOptions && Object.keys(item.flavorOptions).length > 0 && (
+                                <div className="p-5 bg-gray-50 rounded-xl border border-gray-200/80 shadow-sm">
+                                  <label className="block text-sm font-semibold text-gray-800 mb-4 tracking-wide">{item.flavorsTitle || 'Sabores'}</label>
+                                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {Object.entries(item.flavorOptions).map(([flavorKey, price]) => {
+                                      const isSelected = selectedFlavors.includes(flavorKey);
+                                      const isDisabled = !isSelected && selectedFlavors.length >= maxFlavors;
+                                      return (
+                                        <button
+                                          key={flavorKey}
+                                          type="button"
+                                          onClick={() => toggleFlavor(flavorKey)}
+                                          disabled={isDisabled}
+                                          className={`group relative p-3 rounded-lg border-2 text-left transition-all flex flex-col gap-1 ${isSelected ? 'border-purple-500 bg-purple-50 shadow-inner' : 'border-gray-200 hover:border-purple-400 bg-white'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                          <span className="font-semibold text-sm text-gray-800 group-hover:text-purple-700">{flavorKey}</span>
+                                          <span className="text-xs text-gray-500">{price > 0 ? `+ R$ ${price.toFixed(2)}` : 'Incluído'}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-3">Máximo de {maxFlavors} sabor(es).</div>
+                                </div>
+                              )}
+
+                              {item.borderOptions && Object.keys(item.borderOptions).length > 0 && (
+                                <div className="p-5 bg-gray-50 rounded-xl border border-gray-200/80 shadow-sm">
+                                  <label className="block text-sm font-semibold text-gray-800 mb-4 tracking-wide">{item.borderTitle || 'Borda'}</label>
+                                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedBorder('')}
+                                      className={`p-3 rounded-lg border-2 transition-all flex flex-col gap-1 ${!selectedBorder ? 'border-purple-500 bg-purple-50 shadow-inner' : 'border-gray-200 hover:border-purple-400 bg-white'}`}
+                                    >
+                                      <span className="font-semibold text-sm text-gray-800">Sem Borda</span>
+                                    </button>
+                                    {Object.entries(item.borderOptions).map(([key, value]) => (
+                                      <button
+                                        key={key}
+                                        type="button"
+                                        onClick={() => setSelectedBorder(key)}
+                                        className={`p-3 rounded-lg border-2 transition-all flex flex-col gap-1 ${selectedBorder === key ? 'border-purple-500 bg-purple-50 shadow-inner' : 'border-gray-200 hover:border-purple-400 bg-white'}`}
+                                      >
+                                        <span className="font-semibold text-sm text-gray-800">{key}</span>
+                                        <span className="text-xs text-gray-500">+ R$ {value.toFixed(2)}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Coluna 2 */}
+                            <div className="space-y-6">
+                              {item.extraOptions && Object.keys(item.extraOptions).length > 0 && (
+                                <div className="p-5 bg-gray-50 rounded-xl border border-gray-200/80 shadow-sm">
+                                  <label className="block text-sm font-semibold text-gray-800 mb-4 tracking-wide">{item.extrasTitle || 'Extras'}</label>
+                                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {Object.entries(item.extraOptions).map(([key, value]) => {
+                                      const isSelected = selectedExtras.includes(key);
+                                      const isDisabled = !isSelected && selectedExtras.length >= maxExtras;
+                                      return (
+                                        <button
+                                          key={key}
+                                          type="button"
+                                          onClick={() => toggleExtra(key)}
+                                          disabled={isDisabled}
+                                          className={`group relative p-3 rounded-lg border-2 text-left transition-all flex flex-col gap-1 ${isSelected ? 'border-purple-500 bg-purple-50 shadow-inner' : 'border-gray-200 hover:border-purple-400 bg-white'} ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                        >
+                                          <span className="font-semibold text-sm text-gray-800 group-hover:text-purple-700">{key}</span>
+                                          <span className="text-xs text-gray-500">+ R$ {value.toFixed(2)}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-3">Máximo de {maxExtras} extra(s).</div>
+                                </div>
+                              )}
+
+                              {itemCategory?.allowHalfAndHalf && allPizzas && (
+                                <div className={`p-5 rounded-xl border transition-all shadow-sm ${isHalf ? 'bg-purple-50 border-purple-400' : 'bg-gray-50 border-gray-200/80'}`}
+                                >
+                                  <label className="flex items-center gap-3 mb-4 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={isHalf}
+                                      onChange={e => setIsHalf(e.target.checked)}
+                                      className="form-checkbox h-5 w-5 text-purple-600"
+                                    />
+                                    <span className="text-sm font-semibold text-gray-800">Montar Meio a Meio</span>
+                                  </label>
+                                  {isHalf && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                                    >
+                                      <select
+                                        className="form-input"
+                                        value={half1?.name || ''}
+                                        onChange={e => setHalf1(allPizzas.find(p => p.name === e.target.value) || null)}
+                                      >
+                                        {allPizzas.map(p => (
+                                          <option key={p._id} value={p.name}>{p.name}</option>
+                                        ))}
+                                      </select>
+                                      <select
+                                        className="form-input"
+                                        value={half2?.name || ''}
+                                        onChange={e => setHalf2(allPizzas.find(p => p.name === e.target.value) || null)}
+                                      >
+                                        <option value="">Selecione o 2º sabor</option>
+                                        {allPizzas.filter(p => p.name !== half1?.name).map(p => (
+                                          <option key={p._id} value={p.name}>{p.name}</option>
+                                        ))}
+                                      </select>
+                                    </motion.div>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="grid md:grid-cols-2 gap-6">
+                                <div className="p-5 bg-gray-50 rounded-xl border border-gray-200/80 shadow-sm">
+                                  <label className="block text-sm font-semibold text-gray-800 mb-4 tracking-wide">Quantidade</label>
+                                  <div className="flex items-center justify-center gap-6">
+                                    <button type="button" onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-11 h-11 rounded-full bg-white border border-gray-300 text-gray-700 hover:border-purple-500 hover:text-purple-600 transition">-</button>
+                                    <span className="text-3xl font-bold tabular-nums text-purple-700">{quantity}</span>
+                                    <button type="button" onClick={() => setQuantity(q => q + 1)} className="w-11 h-11 rounded-full bg-purple-600 text-white hover:bg-purple-700 shadow-sm transition">+</button>
+                                  </div>
+                                </div>
+                                <div className="p-5 bg-gray-50 rounded-xl border border-gray-200/80 shadow-sm">
+                                  <label className="block text-sm font-semibold text-gray-800 mb-4 tracking-wide">Observação</label>
+                                  <textarea
+                                    value={observation}
+                                    onChange={(e) => setObservation(e.target.value)}
+                                    placeholder="Ex: Sem cebola, bem passada..."
+                                    className="form-input min-h-[120px] resize-y"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </form>
+                      </div>
+
+                      {/* Footer Sticky */}
+                      <div className="sticky bottom-0 z-10 px-6 py-4 border-t bg-white/95 backdrop-blur rounded-b-2xl flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+                        <div>
+                          <span className="text-xs uppercase tracking-wide text-gray-500 block">Total</span>
+                          <div className="text-2xl font-bold text-purple-700">R$ {calculateTotal().toFixed(2)}</div>
+                        </div>
+                        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+                          <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-3 rounded-lg font-semibold border border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600 transition"
+                          >
+                            Cancelar
+                          </button>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={(e) => { e.preventDefault(); const fake = { preventDefault: () => {} } as any; handleSubmit(fake); }}
+                            disabled={isHalf && (!half1 || !half2)}
+                            className="px-8 py-3 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md"
+                          >
+                            Adicionar
+                          </motion.button>
+                        </div>
+                      </div>
+                    </motion.div>
             </motion.div>
         </AnimatePresence>
     );

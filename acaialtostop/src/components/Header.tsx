@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
-import { FaExclamationCircle } from 'react-icons/fa';
+import { FaExclamationCircle, FaMapMarkerAlt, FaClock, FaPhoneAlt, FaMoneyBillWave } from 'react-icons/fa';
 import { isRestaurantOpen } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
 
@@ -14,7 +14,6 @@ export default function Header() {
     const [businessHours, setBusinessHours] = useState<BusinessHoursConfig | null>(null);
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<any>({});
-    const [lastMenuUpdate, setLastMenuUpdate] = useState<Date | null>(null);
 
     const checkOpenStatus = useCallback(() => {
         if (!businessHours) return false;
@@ -54,44 +53,6 @@ export default function Header() {
         }
         fetchSettings();
     }, []);
-
-    // Função para buscar última atualização do menu
-    const fetchLastMenuUpdate = async () => {
-        try {
-            const res = await fetch('/api/menu');
-            if (res.ok) {
-                setLastMenuUpdate(new Date());
-            }
-        } catch (err) {
-            // Silêncio em caso de erro
-        }
-    };
-
-    // Buscar atualização inicial e configurar intervalo
-    useEffect(() => {
-        fetchLastMenuUpdate();
-        const interval = setInterval(fetchLastMenuUpdate, 30000); // A cada 30 segundos
-        return () => clearInterval(interval);
-    }, []);
-
-    // Função para formatar tempo relativo
-    const formatLastUpdate = (date: Date) => {
-        const now = new Date();
-        const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-        if (diffInSeconds < 60) {
-            return 'Atualizado agora';
-        } else if (diffInSeconds < 3600) {
-            const minutes = Math.floor(diffInSeconds / 60);
-            return `Atualizado há ${minutes}min`;
-        } else if (diffInSeconds < 86400) {
-            const hours = Math.floor(diffInSeconds / 3600);
-            return `Atualizado há ${hours}h`;
-        } else {
-            const days = Math.floor(diffInSeconds / 86400);
-            return `Atualizado há ${days} dia${days > 1 ? 's' : ''}`;
-        }
-    };
 
     useEffect(() => {
         if (!businessHours) return;
@@ -166,18 +127,6 @@ export default function Header() {
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-4"
                 >
-                    {/* Indicador de atualização do menu */}
-                    {lastMenuUpdate && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-1 rounded-full"
-                        >
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            <span>{formatLastUpdate(lastMenuUpdate)}</span>
-                        </motion.div>
-                    )}
-
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -197,68 +146,91 @@ export default function Header() {
             </div>
 
             {/* Modal de informações do restaurante */}
-            {showInfo && (
-                <AnimatePresence>
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-                        onClick={() => setShowInfo(false)}
-                    >
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-                            transition={{
-                                type: "spring",
-                                damping: 25,
-                                stiffness: 300
-                            }}
-                            className="bg-white rounded-2xl shadow-2xl p-0 max-w-lg w-full mx-4 text-gray-800 border border-gray-200 relative max-h-[85vh] overflow-hidden"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="bg-gradient-to-r from-purple-600 to-purple-700 p-6 rounded-t-2xl">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-white">{settings.restaurantName || ""}</h2>
-                                        <p className="text-purple-100 text-sm">{settings.restaurantSubtitle || "Informações do Restaurante"}</p>
-                                    </div>
-                                    <motion.button
-                                        whileHover={{ scale: 1.1, rotate: 90 }}
-                                        whileTap={{ scale: 0.9 }}
-                                        className="text-white/80 hover:text-white text-2xl"
-                                        onClick={() => setShowInfo(false)}
-                                    >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </motion.button>
-                                </div>
-                            </div>
-                            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-                                <div className="bg-gray-100 rounded-xl p-4 border border-gray-200">
-                                    <h3 className="font-semibold text-gray-900 mb-2">Horário de Funcionamento</h3>
-                                    <div className="space-y-2 text-sm">{renderBusinessHours()}</div>
-                                </div>
-                                <div className="bg-gray-100 rounded-xl p-4 border border-gray-200">
-                                    <h3 className="font-semibold text-gray-900 mb-2">Endereço</h3>
-                                    <p className="text-gray-800">{settings.addressStreet || "Rua Fictícia"}</p>
-                                    <p className="text-gray-500 text-sm">{settings.addressCity || "Cidade - UF"}</p>
-                                </div>
-                                <div className="bg-gray-100 rounded-xl p-4 border border-gray-200">
-                                    <h3 className="font-semibold text-gray-900 mb-2">Contato</h3>
-                                    <p className="text-gray-500 text-sm">Telefone/WhatsApp:</p>
-                                    <p className="text-gray-800 font-medium">{settings.contactPhone || "(00) 00000-0000"}</p>
-                                </div>
-                                <div className="bg-gray-100 rounded-xl p-4 border border-gray-200">
-                                    <h3 className="font-semibold text-gray-900 mb-2">Formas de Pagamento</h3>
-                                    <p className="text-sm text-gray-600">{settings.paymentMethods || "Cartão, PIX e dinheiro"}</p>
-                                </div>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                </AnimatePresence>
-            )}
+                        {showInfo && (
+                            <AnimatePresence>
+                                                <motion.div
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    exit={{ opacity: 0 }}
+                                                    transition={{ duration: 0.25 }}
+                                                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                                                    onClick={() => setShowInfo(false)}
+                                                >
+                                                        <motion.div
+                                                            initial={{ opacity: 0, scale: 0.9, y: 24 }}
+                                                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                            exit={{ opacity: 0, scale: 0.9, y: 24 }}
+                                                            transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                                                            className="relative w-full max-w-xl rounded-3xl overflow-hidden border border-gray-200 shadow-2xl bg-white"
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            <div className="relative">
+                                            <div className="bg-gradient-to-r from-purple-700 via-purple-600 to-purple-700 px-6 py-5 flex items-start gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <h2 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
+                                                        {settings.restaurantName || 'Estabelecimento'}
+                                                        <span className={`inline-block w-2.5 h-2.5 rounded-full ${isOpen ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'} shadow`}></span>
+                                                    </h2>
+                                                    <p className="text-purple-100 text-xs mt-1 leading-snug">{settings.restaurantSubtitle || 'Informações do estabelecimento'}</p>
+                                                </div>
+                                                <motion.button
+                                                    whileHover={{ rotate: 90, scale: 1.05 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                    onClick={() => setShowInfo(false)}
+                                                    aria-label="Fechar"
+                                                    className="text-white/70 hover:text-white transition-colors rounded-full p-1 hover:bg-white/10"
+                                                >
+                                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </motion.button>
+                                            </div>
+                                              <div className="px-6 pt-5 pb-4 space-y-5 max-h-[62vh] overflow-y-auto">
+                                                <section className="group relative">
+                                                    <header className="flex items-center gap-2 mb-2">
+                                                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-600/10 text-purple-600"><FaClock className="w-4 h-4"/></span>
+                                                        <h3 className="font-semibold text-gray-800 text-sm tracking-wide">Horários</h3>
+                                                    </header>
+                                                      <div className="rounded-2xl border border-purple-100/60 bg-white p-4 shadow-sm space-y-1 text-sm">
+                                                        {renderBusinessHours()}
+                                                    </div>
+                                                </section>
+                                                <section className="group">
+                                                    <header className="flex items-center gap-2 mb-2">
+                                                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-600/10 text-purple-600"><FaMapMarkerAlt className="w-4 h-4"/></span>
+                                                        <h3 className="font-semibold text-gray-800 text-sm tracking-wide">Endereço</h3>
+                                                    </header>
+                                                      <div className="rounded-2xl border border-purple-100/60 bg-white p-4 shadow-sm text-sm leading-relaxed">
+                                                        <p className="font-medium text-gray-700">{settings.addressStreet || 'Rua Fictícia'}</p>
+                                                        <p className="text-gray-500">{settings.addressCity || 'Cidade - UF'}</p>
+                                                    </div>
+                                                </section>
+                                                <section className="group">
+                                                    <header className="flex items-center gap-2 mb-2">
+                                                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-600/10 text-purple-600"><FaPhoneAlt className="w-4 h-4"/></span>
+                                                        <h3 className="font-semibold text-gray-800 text-sm tracking-wide">Contato</h3>
+                                                    </header>
+                                                      <div className="rounded-2xl border border-purple-100/60 bg-white p-4 shadow-sm text-sm">
+                                                        <p className="text-gray-500 text-xs uppercase tracking-wide mb-1">Telefone / WhatsApp</p>
+                                                        <p className="font-semibold text-gray-700 text-base">{settings.contactPhone || '(00) 00000-0000'}</p>
+                                                    </div>
+                                                </section>
+                                                <section className="group">
+                                                    <header className="flex items-center gap-2 mb-2">
+                                                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-600/10 text-purple-600"><FaMoneyBillWave className="w-5 h-5"/></span>
+                                                        <h3 className="font-semibold text-gray-800 text-sm tracking-wide">Pagamento</h3>
+                                                    </header>
+                                                      <div className="rounded-2xl border border-purple-100/60 bg-white p-4 shadow-sm text-sm">
+                                                        <p className="text-gray-600 leading-relaxed">{settings.paymentMethods || 'Cartão, PIX e dinheiro'}</p>
+                                                    </div>
+                                                </section>
+                                            </div>
+                                            <div className="px-6 pb-5 pt-3 flex items-center justify-end gap-3 bg-gradient-to-b from-transparent to-white/60">
+                                                <button onClick={()=> setShowInfo(false)} className="text-sm font-medium px-4 py-2 rounded-full bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.97] transition disabled:opacity-50">Fechar</button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                </motion.div>
+                            </AnimatePresence>
+                        )}
         </header>
     );
 }

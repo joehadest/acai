@@ -481,7 +481,7 @@ export default function RecentOrders() {
                     className="bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2"
                   >
                     <FaShareAlt className="w-4 h-4" />
-                    Compartilhar
+                    Imprimir
                   </motion.button>
                 </div>
               </div>
@@ -585,9 +585,12 @@ export default function RecentOrders() {
 
       {/* Modal de detalhes */}
       {pedidoSelecionado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40" onClick={() => setPedidoSelecionado(null)}>
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4"
+          onClick={() => setPedidoSelecionado(null)}
+        >
           <div
-            className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full relative print-pedido border border-gray-800"
+            className="bg-[#262525] rounded-xl shadow-xl p-6 max-w-md w-full relative print-pedido border border-gray-800 max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}
           >
             <button
@@ -603,6 +606,36 @@ export default function RecentOrders() {
               <div><b>Data:</b> {pedidoSelecionado.data ? formatDate(pedidoSelecionado.data) : '-'}</div>
               <div><b>Status:</b> {getStatusText(pedidoSelecionado.status as Pedido['status'])}</div>
             </div>
+            
+            {/* Total e Botões no Topo */}
+            <div className="font-bold text-orange-600 mb-3 text-lg flex justify-between bg-gray-700 p-2 rounded">
+              <span>Total:</span>
+              <span>R$ {pedidoSelecionado.total?.toFixed(2) || '-'}</span>
+            </div>
+            <div className="flex gap-2 mb-4">
+              <button
+                className="flex-1 bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2 no-print"
+                onClick={() => {
+                  if (pedidoSelecionado) {
+                    const printWindow = window.open(`/api/pedidos?id=${pedidoSelecionado._id}&print=true`, '_blank');
+                    if (printWindow) {
+                      printWindow.onload = () => {
+                        printWindow.print();
+                      };
+                    }
+                  }
+                }}
+              >
+                🖨️ Imprimir
+              </button>
+              <button
+                onClick={() => setPedidoSelecionado(null)}
+                className="px-4 py-2 bg-gray-500 text-white rounded font-semibold hover:bg-gray-600 transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+
             <div className="mb-2 text-xs">
               <h4 className="font-semibold mb-1">Cliente:</h4>
               <div>Nome: {pedidoSelecionado.cliente?.nome || '-'}</div>
@@ -629,24 +662,26 @@ export default function RecentOrders() {
             )}
             <div className="mb-2">
               <h4 className="font-semibold mb-1">Itens:</h4>
-              <ul>
-                {pedidoSelecionado.itens.map((item, idx) => (
-                  <li key={idx} className="flex justify-between text-xs">
-                    <span>
-                      {item.quantidade}x {item.nome}
-                      {item.size && ` (${item.size})`}
-                      {item.border && ` - Borda: ${item.border}`}
-                      {item.extras && item.extras.length > 0 && (
-                        ` - Extras: ${item.extras.join(', ')}`
-                      )}
-                      {item.observacao && (
-                        <span className="block text-xs text-gray-400 mt-1">{item.observacao}</span>
-                      )}
-                    </span>
-                    <span>R$ {item.preco.toFixed(2)}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="max-h-60 overflow-y-auto pr-1 custom-scroll no-print:max-h-60 print:max-h-none print:overflow-visible border border-gray-700 rounded">
+                <ul className="divide-y divide-gray-700">
+                  {pedidoSelecionado.itens.map((item, idx) => (
+                    <li key={idx} className="flex justify-between text-xs py-1 px-1">
+                      <span className="mr-2">
+                        {item.quantidade}x {item.nome}
+                        {item.size && ` (${item.size})`}
+                        {item.border && ` - Borda: ${item.border}`}
+                        {item.extras && item.extras.length > 0 && (
+                          ` - Extras: ${item.extras.join(', ')}`
+                        )}
+                        {item.observacao && (
+                          <span className="block text-[10px] text-gray-400 mt-0.5">{item.observacao}</span>
+                        )}
+                      </span>
+                      <span className="whitespace-nowrap ml-1">R$ {item.preco.toFixed(2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
             {pedidoSelecionado.observacoes && (
               <div className="mb-2 text-xs">
@@ -654,39 +689,20 @@ export default function RecentOrders() {
                 <div>{pedidoSelecionado.observacoes}</div>
               </div>
             )}
-            <div className="flex justify-between text-xs">
+            <div className="flex justify-between text-xs mb-1">
               <span>Taxa de Entrega:</span>
               <span>R$ {pedidoSelecionado.endereco?.deliveryFee?.toFixed(2) || '0,00'}</span>
             </div>
-            <div className="mb-2 text-xs">
+            <div className="mb-1 text-xs">
               <h4 className="font-semibold mb-1">Forma de Pagamento:</h4>
               <div>{pedidoSelecionado.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 'Dinheiro'}</div>
             </div>
             {pedidoSelecionado.formaPagamento?.toLowerCase() === 'dinheiro' && (
-              <div className="flex justify-between text-sm text-gray-300">
+              <div className="flex justify-between text-sm text-gray-300 mb-1">
                 <span>Troco para:</span>
                 <span>R$ {pedidoSelecionado.troco || '-'}</span>
               </div>
             )}
-            <div className="font-bold text-orange-600 mt-2 text-lg flex justify-between">
-              <span>Total:</span>
-              <span>R$ {pedidoSelecionado.total?.toFixed(2) || '-'}</span>
-            </div>
-            <button
-              className="w-full mt-4 bg-white border-2 border-gray-800 text-gray-900 font-mono text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2 no-print"
-              onClick={() => {
-                if (pedidoSelecionado) {
-                  const printWindow = window.open(`/api/pedidos?id=${pedidoSelecionado._id}&print=true`, '_blank');
-                  if (printWindow) {
-                    printWindow.onload = () => {
-                      printWindow.print();
-                    };
-                  }
-                }
-              }}
-            >
-              🖨️ Imprimir Recibo
-            </button>
           </div>
           <style jsx global>{`
             @media print {
@@ -724,7 +740,13 @@ export default function RecentOrders() {
               .print-pedido button, .print-pedido .no-print {
                 display: none !important;
               }
+              .print-pedido .max-h-60 { max-height: none !important; overflow: visible !important; }
             }
+            /* Scrollbar estilizado opcional (não afeta impressão) */
+            .custom-scroll::-webkit-scrollbar { width: 6px; }
+            .custom-scroll::-webkit-scrollbar-track { background: #1f1f1f; }
+            .custom-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+            .custom-scroll::-webkit-scrollbar-thumb:hover { background: #666; }
           `}</style>
         </div>
       )}

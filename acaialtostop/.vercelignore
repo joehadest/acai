@@ -1,0 +1,26 @@
+# Arquivos e pastas a serem ignorados no deploy do Vercel
+
+# Pasta da ponte da impressora (aplicativo desktop)
+../impressora-ponte/
+
+# Arquivos de desenvolvimento
+.env.local
+.env.development
+
+# Cache e dependências
+.next/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Arquivos temporários
+*.tmp
+*.temp

@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, FormEvent } from 'react';
+import React, { useState, useEffect, FormEvent, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
@@ -294,8 +294,8 @@ const ItemModal = ({
     setIsCopyExtrasModalOpen(false);
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (e?: FormEvent) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
     const sizesAsObject = sizesArray.reduce((acc, { key, value }) => {
         acc[key] = value;
         return acc;
@@ -312,205 +312,238 @@ const ItemModal = ({
   const selectedCategoryObj = categories.find(c => c.value === formData.category);
   const allowHalfAndHalfForCategory = !!selectedCategoryObj?.allowHalfAndHalf; 
 
+  const modalRef = useRef<HTMLDivElement | null>(null);
+
+  // Scroll automático para o modal ao abrir (principalmente em telas que já estão scrolladas)
+  useEffect(() => {
+    if (modalRef.current) {
+      setTimeout(() => {
+        // Usar getBoundingClientRect para aplicar offset manual (subir um pouco mais)
+        const el = modalRef.current!;
+        const rect = el.getBoundingClientRect();
+        const absoluteTop = window.scrollY + rect.top;
+        const target = absoluteTop - 40; // sobe mais 40px
+        window.scrollTo({ top: target < 0 ? 0 : target, behavior: 'smooth' });
+      }, 40);
+    }
+  }, []);
+
   return (
     <>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4"
+  className="fixed inset-0 z-50 flex items-start justify-center p-2 xs:p-3 sm:p-4 md:p-8 bg-black/40 md:bg-black/30 backdrop-blur-sm overflow-y-auto"
         onClick={onClose}
       >
         <motion.div
-          initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-          className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto text-gray-800 border border-gray-200"
+          initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }}
+          className="w-full max-w-6xl bg-white/95 backdrop-blur border border-purple-200 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[96vh] md:max-h-[92vh] min-h-[92vh] md:min-h-0 sm:overflow-hidden"
+          ref={modalRef}
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 className="text-2xl font-bold mb-6 text-purple-600">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              <div><label className="form-label">Nome *</label><input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required /></div>
-              <div><label className="form-label">Categoria *</label><select name="category" value={formData.category} onChange={handleChange} className="form-input" required>{categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+          {/* Header Sticky */}
+          <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-4 sm:py-5 border-b bg-white/90 backdrop-blur rounded-t-2xl">
+            <div className="space-y-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-purple-700 leading-tight tracking-tight">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
+              {formData.name && <p className="text-xs sm:text-sm text-purple-500 font-medium truncate max-w-[260px] sm:max-w-[420px]">{formData.name}</p>}
             </div>
-            <div><label className="form-label">Descrição *</label><textarea name="description" value={formData.description} onChange={handleChange} className="form-input" rows={3}></textarea></div>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              <div><label className="form-label">Preço Base (R$) *</label><input type="number" name="price" value={formData.price} onChange={handleChange} className="form-input" required step="0.01" /></div>
-              <div><label className="form-label">URL da Imagem</label><input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" /></div>
+            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+              <button type="button" onClick={onClose} className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold border border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600 transition text-sm sm:text-base">Fechar</button>
+              <button type="button" onClick={() => handleSubmit()} className="flex-1 sm:flex-none px-5 sm:px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow text-sm sm:text-base">Salvar</button>
             </div>
-            <div className="flex items-center"><input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" /><label htmlFor="destaque" className="ml-2 block text-sm text-gray-700">Item em destaque</label></div>
-            <hr className="border-gray-200" />
-            
-            <div className="space-y-2">
-              <label className="form-label">Ingredientes</label>
-              {(formData.ingredients || []).map((ing, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input type="text" value={ing} onChange={e => handleIngredientChange(index, e.target.value)} className="form-input flex-grow" />
-                  <button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2"><FaTrash /></button>
-                </div>
-              ))}
-              <button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button>
-            </div>
-            
-            {allowHalfAndHalfForCategory && (
-              <div className="space-y-2">
-                <label className="form-label font-semibold text-purple-600">Montar Meio a Meio</label>
-                <div className="text-sm text-gray-700 mb-2">
-                  Permite selecionar dois sabores diferentes para este item.
-                </div>
-              </div>
-            )}
+          </div>
 
-            <div className="space-y-2">
-              <label className="form-label">Tamanhos e Preços</label>
-              <div className="mb-2">
-                <label className="text-xs text-gray-600">Título do campo de tamanhos:</label>
-                <input
-                  type="text"
-                  value={formData.sizesTitle ?? ''}
-                  onChange={e => setFormData(prev => ({ ...prev, sizesTitle: e.target.value }))}
-                  className="form-input w-1/2 ml-2"
-                  placeholder="Ex: Escolha o tamanho"
-                />
-              </div>
-              <div className="mb-2">
-                <label className="text-xs text-gray-600">Máximo de escolhas de tamanho:</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={formData.maxSizes ?? 1}
-                  onChange={e => setFormData(prev => ({ ...prev, maxSizes: parseInt(e.target.value) || 1 }))}
-                  className="form-input w-24 ml-2"
-                />
-              </div>
-              {sizesArray.map(({ key, value }, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <div className="flex flex-col">
-                    <button type="button" onClick={() => moveSize(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-50"><FaArrowUp/></button>
-                    <button type="button" onClick={() => moveSize(index, 'down')} disabled={index === sizesArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-50"><FaArrowDown/></button>
-                  </div>
-                  <input type="text" value={key} onChange={e => handleSizeChange(index, 'key', e.target.value)} className="form-input w-1/3" placeholder="Ex: Pequena"/>
-                  <span className="text-gray-500">R$</span>
-                  <input type="number" value={value} onChange={e => handleSizeChange(index, 'value', e.target.value)} className="form-input flex-grow" step="0.01" />
-                  <button type="button" onClick={() => removeSizeField(index)} className="form-button-danger p-2"><FaTrash /></button>
+          {/* Corpo Scroll */}
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-6 sm:space-y-8">
+            {/* Seção Básica */}
+            <section className="grid md:grid-cols-2 gap-5 sm:gap-6">
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="form-label">Nome *</label>
+                  <input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required />
                 </div>
-              ))}
-              <button type="button" onClick={addSizeField} className="form-button-secondary text-sm">+ Adicionar Tamanho</button>
-            </div>
+                <div>
+                  <label className="form-label">Categoria *</label>
+                  <select name="category" value={formData.category} onChange={handleChange} className="form-input" required>
+                    {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Preço Base (R$) *</label>
+                  <input type="number" name="price" value={formData.price} onChange={handleChange} className="form-input" required step="0.01" />
+                </div>
+              </div>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label className="form-label">URL da Imagem</label>
+                  <input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" />
+                </div>
+                <div>
+                  <label className="form-label">Descrição *</label>
+                  <textarea name="description" value={formData.description} onChange={handleChange} className="form-input min-h-[120px]" />
+                </div>
+                <label className="inline-flex items-center gap-2 mt-2">
+                  <input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" />
+                  <span className="text-sm text-gray-700">Item em destaque</span>
+                </label>
+              </div>
+            </section>
 
-            <div className="space-y-2">
-                <label className="form-label">Sabores e Preços</label>
-                <div className="flex justify-between items-center mb-2">
-                  <div>
-                    <label className="text-xs text-gray-600">Título do campo de sabores:</label>
-                    <input
-                      type="text"
-                      value={formData.flavorsTitle ?? ''}
-                      onChange={e => setFormData(prev => ({ ...prev, flavorsTitle: e.target.value }))}
-                      className="form-input w-1/2 ml-2"
-                      placeholder="Ex: Escolha o sabor"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsCopyFlavorsModalOpen(true)}
-                    className="form-button-secondary text-sm flex items-center gap-2"
-                  >
-                    <FaCopy /> Copiar de outro item
-                  </button>
-                </div>
-                <div className="mb-2">
-                  <label className="text-xs text-gray-600">Máximo de escolhas de sabor:</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    value={formData.maxFlavors ?? 1}
-                    onChange={e => setFormData(prev => ({ ...prev, maxFlavors: parseInt(e.target.value) || 1 }))}
-                    className="form-input w-24 ml-2"
-                  />
-                </div>
-                {flavorsArray.map(({ key, value }, index) => (
+            {/* Ingredientes */}
+            <section className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-800">Ingredientes</h3>
+                <button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button>
+              </div>
+              <div className="space-y-3">
+                {(formData.ingredients || []).map((ing, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <div className="flex flex-col">
-                      <button type="button" onClick={() => moveFlavor(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-50"><FaArrowUp /></button>
-                      <button type="button" onClick={() => moveFlavor(index, 'down')} disabled={index === flavorsArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-50"><FaArrowDown /></button>
-                    </div>
-                    <input type="text" value={key} onChange={e => handleFlavorChange(index, 'key', e.target.value)} className="form-input w-1/3" placeholder="Ex: Chocolate" />
-                    <span className="text-gray-500">R$</span>
-                    <input type="number" value={value} onChange={e => handleFlavorChange(index, 'value', e.target.value)} className="form-input flex-grow" step="0.01" />
-                    <button type="button" onClick={() => removeFlavorField(index)} className="form-button-danger p-2"><FaTrash /></button>
+                    <input type="text" value={ing} onChange={e => handleIngredientChange(index, e.target.value)} className="form-input flex-grow" />
+                    <button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2"><FaTrash /></button>
                   </div>
                 ))}
-                <button type="button" onClick={addFlavorField} className="form-button-secondary text-sm">+ Adicionar Sabor</button>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="mb-2">
-                <label className="text-xs text-gray-600">Título do campo de borda:</label>
-                <input
-                  type="text"
-                  value={formData.borderTitle ?? ''}
-                  onChange={e => setFormData(prev => ({ ...prev, borderTitle: e.target.value }))}
-                  className="form-input w-1/2 ml-2"
-                  placeholder="Ex: Escolha a borda"
-                />
+                {(!formData.ingredients || formData.ingredients.length === 0) && (
+                  <p className="text-xs text-gray-500">Nenhum ingrediente adicionado.</p>
+                )}
               </div>
-              <label className="form-label">Opções de Borda</label>
-              {Object.entries(formData.borderOptions || {}).map(([key, value], index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input type="text" value={key} onChange={e => handleDynamicChange('borderOptions', key, 'name', e.target.value)} className="form-input w-1/3" />
-                  <span className="text-gray-500">+ R$</span>
-                  <input type="number" value={value as number} onChange={e => handleDynamicChange('borderOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" />
-                  <button type="button" onClick={() => removeDynamicField('borderOptions', key)} className="form-button-danger p-2"><FaTrash /></button>
+            </section>
+
+            {/* Tamanhos & Sabores Grid */}
+            <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
+              {/* Tamanhos */}
+              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                  <h3 className="font-semibold text-gray-800">Tamanhos e Preços</h3>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600">Título:</label>
+                      <input type="text" value={formData.sizesTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, sizesTitle: e.target.value }))} className="form-input w-44" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600">Máx.:</label>
+                      <input type="number" min={1} max={10} value={formData.maxSizes ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxSizes: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
+                    </div>
+                    <button type="button" onClick={addSizeField} className="form-button-secondary text-xs">+ Tamanho</button>
+                  </div>
                 </div>
-              ))}
-              <button type="button" onClick={() => addDynamicField('borderOptions')} className="form-button-secondary text-sm">+ Adicionar</button>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="mb-2">
-                <label className="text-xs text-gray-600">Título do campo de extras:</label>
-                <input
-                  type="text"
-                  value={formData.extrasTitle ?? ''}
-                  onChange={e => setFormData(prev => ({ ...prev, extrasTitle: e.target.value }))}
-                  className="form-input w-1/2 ml-2"
-                  placeholder="Ex: Escolha os extras"
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <label className="form-label">Opções de Extras</label>
-                <button
-                  type="button"
-                  onClick={() => setIsCopyExtrasModalOpen(true)}
-                  className="form-button-secondary text-sm flex items-center gap-2"
-                >
-                  <FaCopy /> Copiar de outro item
-                </button>
-              </div>
-              <div className="mb-2">
-                <label className="text-xs text-gray-600">Máximo de extras por pedido:</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={formData.maxExtras ?? 2}
-                  onChange={e => setFormData(prev => ({ ...prev, maxExtras: parseInt(e.target.value) || 1 }))}
-                  className="form-input w-24 ml-2"
-                />
-              </div>
-              {Object.entries(formData.extraOptions || {}).map(([key, value], index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <input type="text" value={key} onChange={e => handleDynamicChange('extraOptions', key, 'name', e.target.value)} className="form-input w-1/3" />
-                  <span className="text-gray-500">+ R$</span>
-                  <input type="number" value={value as number} onChange={e => handleDynamicChange('extraOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" />
-                  <button type="button" onClick={() => removeDynamicField('extraOptions', key)} className="form-button-danger p-2"><FaTrash /></button>
+                <div className="space-y-3">
+                  {sizesArray.map(({ key, value }, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="flex flex-col">
+                        <button type="button" onClick={() => moveSize(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
+                        <button type="button" onClick={() => moveSize(index, 'down')} disabled={index === sizesArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
+                      </div>
+                      <input type="text" value={key} onChange={e => handleSizeChange(index, 'key', e.target.value)} className="form-input w-40" placeholder="Ex: Pequena" />
+                      <span className="text-gray-500">R$</span>
+                      <input type="number" value={value} onChange={e => handleSizeChange(index, 'value', e.target.value)} className="form-input flex-grow" step="0.01" />
+                      <button type="button" onClick={() => removeSizeField(index)} className="form-button-danger p-2"><FaTrash /></button>
+                    </div>
+                  ))}
+                  {sizesArray.length === 0 && <p className="text-xs text-gray-500">Nenhum tamanho configurado.</p>}
                 </div>
-              ))}
-              <button type="button" onClick={() => addDynamicField('extraOptions')} className="form-button-secondary text-sm">+ Adicionar</button>
-            </div>
-            
-            <div className="flex justify-end gap-4 pt-4"><button type="button" onClick={onClose} className="form-button-secondary">Cancelar</button><button type="submit" className="form-button-primary"><FaSave className="mr-2" />{formData._id ? 'Atualizar' : 'Salvar'}</button></div>
-          </form>
+              </div>
+
+              {/* Sabores */}
+              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                  <h3 className="font-semibold text-gray-800">Sabores e Preços</h3>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600">Título:</label>
+                      <input type="text" value={formData.flavorsTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, flavorsTitle: e.target.value }))} className="form-input w-44" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600">Máx.:</label>
+                      <input type="number" min={1} max={10} value={formData.maxFlavors ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxFlavors: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
+                    </div>
+                    <button type="button" onClick={addFlavorField} className="form-button-secondary text-xs">+ Sabor</button>
+                    <button type="button" onClick={() => setIsCopyFlavorsModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {flavorsArray.map(({ key, value }, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="flex flex-col">
+                        <button type="button" onClick={() => moveFlavor(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
+                        <button type="button" onClick={() => moveFlavor(index, 'down')} disabled={index === flavorsArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
+                      </div>
+                      <input type="text" value={key} onChange={e => handleFlavorChange(index, 'key', e.target.value)} className="form-input w-40" placeholder="Ex: Chocolate" />
+                      <span className="text-gray-500">R$</span>
+                      <input type="number" value={value} onChange={e => handleFlavorChange(index, 'value', e.target.value)} className="form-input flex-grow" step="0.01" />
+                      <button type="button" onClick={() => removeFlavorField(index)} className="form-button-danger p-2"><FaTrash /></button>
+                    </div>
+                  ))}
+                  {flavorsArray.length === 0 && <p className="text-xs text-gray-500">Nenhum sabor configurado.</p>}
+                </div>
+                {allowHalfAndHalfForCategory && (
+                  <div className="mt-6 p-4 rounded-lg border border-purple-200 bg-purple-50/70">
+                    <h4 className="text-sm font-semibold text-purple-700 mb-1">Opção Meio a Meio</h4>
+                    <p className="text-xs text-purple-600">Clientes poderão montar dois sabores diferentes.</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Bordas & Extras */}
+            <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
+              {/* Borda */}
+              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                  <h3 className="font-semibold text-gray-800">Bordas</h3>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600">Título:</label>
+                      <input type="text" value={formData.borderTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, borderTitle: e.target.value }))} className="form-input w-44" />
+                    </div>
+                    <button type="button" onClick={() => addDynamicField('borderOptions')} className="form-button-secondary text-xs">+ Borda</button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {Object.entries(formData.borderOptions || {}).map(([key, value], index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input type="text" value={key} onChange={e => handleDynamicChange('borderOptions', key, 'name', e.target.value)} className="form-input w-40" />
+                      <span className="text-gray-500">+ R$</span>
+                      <input type="number" value={value as number} onChange={e => handleDynamicChange('borderOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" />
+                      <button type="button" onClick={() => removeDynamicField('borderOptions', key)} className="form-button-danger p-2"><FaTrash /></button>
+                    </div>
+                  ))}
+                  {(!formData.borderOptions || Object.keys(formData.borderOptions).length === 0) && <p className="text-xs text-gray-500">Nenhuma borda configurada.</p>}
+                </div>
+              </div>
+
+              {/* Extras */}
+              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                  <h3 className="font-semibold text-gray-800">Extras</h3>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600">Título:</label>
+                      <input type="text" value={formData.extrasTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, extrasTitle: e.target.value }))} className="form-input w-44" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-600">Máx.:</label>
+                      <input type="number" min={1} max={10} value={formData.maxExtras ?? 2} onChange={e => setFormData(prev => ({ ...prev, maxExtras: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
+                    </div>
+                    <button type="button" onClick={() => addDynamicField('extraOptions')} className="form-button-secondary text-xs">+ Extra</button>
+                    <button type="button" onClick={() => setIsCopyExtrasModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {Object.entries(formData.extraOptions || {}).map(([key, value], index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input type="text" value={key} onChange={e => handleDynamicChange('extraOptions', key, 'name', e.target.value)} className="form-input w-40" />
+                      <span className="text-gray-500">+ R$</span>
+                      <input type="number" value={value as number} onChange={e => handleDynamicChange('extraOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" />
+                      <button type="button" onClick={() => removeDynamicField('extraOptions', key)} className="form-button-danger p-2"><FaTrash /></button>
+                    </div>
+                  ))}
+                  {(!formData.extraOptions || Object.keys(formData.extraOptions).length === 0) && <p className="text-xs text-gray-500">Nenhum extra configurado.</p>}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* Footer removido conforme solicitação (botões já existem no topo) */}
         </motion.div>
       </motion.div>
       <AnimatePresence>
@@ -538,9 +571,26 @@ const ItemModal = ({
 
 // --- COMPONENTE DE CATEGORIAS (TEMA CLARO) ---
 const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; order?: number }[]; onUpdate: () => void }) => {
-    const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
-    const [catForm, setCatForm] = useState({ value: '', label: '', order: 0, allowHalfAndHalf: false });
-    const [catEditId, setCatEditId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number; allowHalfAndHalf?: boolean }[]>(initialCategories);
+  const [catForm, setCatForm] = useState({ value: '', label: '', allowHalfAndHalf: false });
+  const [catEditId, setCatEditId] = useState<string | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const dragItemIndex = useRef<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const previousSnapshot = useRef<typeof categories | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const undoTimerRef = useRef<any>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  const scrollFormIntoView = () => {
+    if (!formRef.current) return;
+    try {
+      const rect = formRef.current.getBoundingClientRect();
+      const offset = 90; // compensar header fixo
+      const target = rect.top + window.scrollY - offset;
+      window.scrollTo({ top: target < 0 ? 0 : target, behavior: 'smooth' });
+    } catch {}
+  };
 
     useEffect(() => {
         setCategories(initialCategories);
@@ -553,19 +603,19 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
       setCatForm(prev => ({ ...prev, [name]: isCheckbox ? isChecked : value }));
     };
   
-    const handleCatSubmit = async (e: FormEvent) => {
+  const handleCatSubmit = async (e: FormEvent) => {
       e.preventDefault();
       try {
-        const body = catEditId
-          ? { ...catForm, order: Number(catForm.order), _id: catEditId }
-          : { ...catForm, order: Number(catForm.order) };
+    const body = catEditId
+      ? { ...catForm, _id: catEditId }
+      : { ...catForm };
         const res = await fetch('/api/categories', {
           method: catEditId ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
         if (res.ok) {
-          setCatForm({ value: '', label: '', order: 0, allowHalfAndHalf: false });
+      setCatForm({ value: '', label: '', allowHalfAndHalf: false });
           setCatEditId(null);
           onUpdate();
         } else {
@@ -576,10 +626,12 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
       }
     };
   
-    const handleEditCategory = (cat: any) => {
-      setCatForm({ value: cat.value, label: cat.label, order: cat.order || 0, allowHalfAndHalf: cat.allowHalfAndHalf || false });
-      setCatEditId(cat._id || null);
-    };
+  const handleEditCategory = (cat: any) => {
+    setCatForm({ value: cat.value, label: cat.label, allowHalfAndHalf: cat.allowHalfAndHalf || false });
+    setCatEditId(cat._id || null);
+    // garantir que scroll ocorre após paint das mudanças
+    requestAnimationFrame(() => scrollFormIntoView());
+  };
   
     const handleDeleteCategory = async (id?: string, name?: string) => {
       if (!id || !name || !confirm(`Excluir a categoria "${name}"?`)) return;
@@ -592,12 +644,72 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
       }
     };
 
+    const beginUndoWindow = () => {
+      setShowUndo(true);
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = setTimeout(() => setShowUndo(false), 6000);
+    };
+
+    const handleUndo = async () => {
+      if (previousSnapshot.current) {
+        const old = previousSnapshot.current;
+        setCategories(old);
+        setShowUndo(false);
+        setIsSavingOrder(true);
+        try {
+          await fetch('/api/categories', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ categories: old.map(c=>({_id:c._id})) }) });
+          onUpdate();
+        } catch { alert('Falha ao reverter'); }
+        finally { setIsSavingOrder(false); }
+      }
+    };
+
+    const handleDragStart = (index: number) => (e: React.DragEvent) => {
+      dragItemIndex.current = index;
+      setDraggingIndex(index);
+      previousSnapshot.current = [...categories];
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(index));
+    };
+
+    const handleDragEnterRow = (index: number) => (e: React.DragEvent) => {
+      if (dragItemIndex.current === null || dragItemIndex.current === index) return;
+      const from = dragItemIndex.current;
+      setCategories(prev => {
+        const list = [...prev];
+        const [moved] = list.splice(from, 1);
+        list.splice(index, 0, moved);
+        dragItemIndex.current = index;
+        return list;
+      });
+    };
+
+    const sameOrder = (a: typeof categories, b: typeof categories) => a.map(c=>c._id).join('|') === b.map(c=>c._id).join('|');
+
+    const persistIfChanged = async () => {
+      if (!previousSnapshot.current) return;
+      if (sameOrder(previousSnapshot.current, categories)) return; // nada mudou
+      setIsSavingOrder(true);
+      try {
+        await fetch('/api/categories', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ categories: categories.map(c=>({_id:c._id})) }) });
+        onUpdate();
+        beginUndoWindow();
+      } catch { alert('Falha ao salvar nova ordem'); }
+      finally { setIsSavingOrder(false); }
+    };
+
+    const handleDrop = async () => {
+      setDraggingIndex(null);
+      dragItemIndex.current = null;
+      await persistIfChanged();
+    };
+
     return (
-        <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-md">
-            <h2 className="text-2xl font-bold text-purple-700 mb-6">Gerenciar Categorias</h2>
-            <form onSubmit={handleCatSubmit} className="flex flex-col md:flex-row md:items-end gap-4 mb-8 bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-md">
+            <h2 className="text-xl sm:text-2xl font-bold text-purple-700 mb-4 sm:mb-6">Gerenciar Categorias</h2>
+            <form ref={formRef} onSubmit={handleCatSubmit} className="flex flex-col lg:flex-row lg:items-end gap-4 mb-6 sm:mb-8 bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm">
                 <div className="flex flex-col flex-1">
-                    <label className="form-label mb-1">Nome da Categoria</label>
+                    <label className="form-label mb-1 text-sm sm:text-base">Nome da Categoria</label>
                     <input
                         type="text"
                         name="label"
@@ -620,10 +732,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                         required
                     />
                 </div>
-                <div className="flex flex-col w-24">
-                    <label className="form-label mb-1">Ordem</label>
-                    <input type="number" name="order" value={catForm.order} onChange={handleCatFormChange} placeholder="Ordem" className="form-input" min={0} required />
-                </div>
+                {/* Ordem removida: agora definida por drag & drop */}
                 <div className="flex flex-col justify-center">
                     <label className="form-label mb-1">Meio a Meio</label>
                     <label className="flex items-center gap-2">
@@ -636,47 +745,133 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                 </button>
             </form>
             <div className="overflow-x-auto">
-                <table className="w-full text-left text-gray-800 rounded-lg overflow-hidden shadow-sm">
-                    <thead>
-                        <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
-                            <th className="p-3 font-semibold">Ordem</th>
-                            <th className="p-3 font-semibold">Nome</th>
-                            <th className="p-3 font-semibold">Valor</th>
-                            <th className="p-3 font-semibold">Meio a Meio</th>
-                            <th className="p-3 font-semibold">Ações</th>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-500">Arraste para reordenar</span>
+                  <div className="flex items-center gap-4">
+                    {isSavingOrder && <span className="text-xs text-purple-600 animate-pulse">Salvando...</span>}
+                  </div>
+                </div>
+                {/* Tabela (desktop) */}
+                <table className="hidden md:table w-full text-left text-gray-800 rounded-lg overflow-hidden shadow-sm select-none relative">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                      <th className="p-3 font-semibold w-10">#</th>
+                      <th className="p-3 font-semibold">Nome</th>
+                      <th className="p-3 font-semibold">Valor</th>
+                      <th className="p-3 font-semibold">Meio a Meio</th>
+                      <th className="p-3 font-semibold">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <AnimatePresence initial={false}>
+                      {categories.map((cat, index) => (
+                        <tr
+                          key={cat._id}
+                          className={`border-b border-gray-100 cursor-grab active:cursor-grabbing transition-colors ${draggingIndex===index ? 'bg-purple-50 shadow-inner' : 'hover:bg-purple-50'}`}
+                          draggable
+                          onDragStart={handleDragStart(index)}
+                          onDragEnter={handleDragEnterRow(index)}
+                          onDragOver={(e)=> e.preventDefault()}
+                          onDrop={handleDrop}
+                          onDragEnd={handleDrop}
+                        >
+                          <td className="p-3 text-gray-400 text-xs">
+                            <div className="flex flex-col justify-center items-center gap-[2px]">
+                              <span className="h-1 w-5 bg-gray-300 rounded" />
+                              <span className="h-1 w-5 bg-gray-300 rounded" />
+                              <span className="h-1 w-5 bg-gray-300 rounded" />
+                            </div>
+                          </td>
+                          <td className="p-3">{cat.label}</td>
+                          <td className="p-3">{cat.value}</td>
+                          <td className="p-3 text-center">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${cat.allowHalfAndHalf ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                              {cat.allowHalfAndHalf ? 'Sim' : 'Não'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right flex gap-2">
+                            <button
+                              onClick={() => handleEditCategory(cat)}
+                              className="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition-colors flex items-center gap-1"
+                              title="Editar"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCategory(cat._id, cat.label)}
+                              className="bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
+                              title="Excluir"
+                            >
+                              <FaTrash />
+                            </button>
+                            <div className="flex flex-col ml-1">
+                              <button type="button" aria-label="Mover para cima" className="text-gray-400 hover:text-gray-700 p-0.5 disabled:opacity-30" disabled={index===0}
+                                onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index-1,0,it); return list; }); persistIfChanged(); }}>&uarr;</button>
+                              <button type="button" aria-label="Mover para baixo" className="text-gray-400 hover:text-gray-700 p-0.5 disabled:opacity-30" disabled={index===categories.length-1}
+                                onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index+1,0,it); return list; }); persistIfChanged(); }}>&darr;</button>
+                            </div>
+                          </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {categories.sort((a, b) => (a.order || 0) - (b.order || 0)).map(cat => (
-                            <tr key={cat._id} className="border-b border-gray-100 hover:bg-purple-50 transition-colors">
-                                <td className="p-3">{cat.order}</td>
-                                <td className="p-3">{cat.label}</td>
-                                <td className="p-3">{cat.value}</td>
-                                <td className="p-3 text-center">
-                                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${cat.allowHalfAndHalf ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                                        {cat.allowHalfAndHalf ? 'Sim' : 'Não'}
-                                    </span>
-                                </td>
-                                <td className="p-3 text-right flex gap-2">
-                                    <button
-                                        onClick={() => handleEditCategory(cat)}
-                                        className="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200 transition-colors flex items-center gap-1"
-                                        title="Editar"
-                                    >
-                                        <FaEdit />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteCategory(cat._id, cat.label)}
-                                        className="bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
-                                        title="Excluir"
-                                    >
-                                        <FaTrash />
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
+                      ))}
+                    </AnimatePresence>
+                  </tbody>
                 </table>
+                {/* Lista Mobile */}
+                <ul className="md:hidden space-y-3 select-none">
+                  {categories.map((cat, index) => (
+                    <li
+                      key={cat._id}
+                      className={`relative rounded-xl border border-gray-200 bg-white p-3 shadow-sm flex items-start gap-3 ${draggingIndex===index ? 'ring-2 ring-purple-400/60' : ''}`}
+                      draggable
+                      onDragStart={handleDragStart(index)}
+                      onDragEnter={handleDragEnterRow(index)}
+                      onDragOver={(e)=> e.preventDefault()}
+                      onDrop={handleDrop}
+                      onDragEnd={handleDrop}
+                    >
+                      <div className="flex flex-col justify-center items-center text-gray-400 pr-1 cursor-grab active:cursor-grabbing">
+                        <span className="h-1 w-5 bg-gray-300 rounded mb-0.5" />
+                        <span className="h-1 w-5 bg-gray-300 rounded mb-0.5" />
+                        <span className="h-1 w-5 bg-gray-300 rounded" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-gray-800 leading-tight">{cat.label}</p>
+                        <p className="text-xs text-gray-500 break-all">{cat.value}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${cat.allowHalfAndHalf ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{cat.allowHalfAndHalf ? 'Meio a Meio' : 'Padrão'}</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex gap-2">
+                          <button onClick={() => handleEditCategory(cat)} className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 active:scale-95" aria-label="Editar categoria"><FaEdit className="w-4 h-4"/></button>
+                          <button onClick={() => handleDeleteCategory(cat._id, cat.label)} className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 active:scale-95" aria-label="Excluir categoria"><FaTrash className="w-4 h-4"/></button>
+                        </div>
+                        <div className="flex gap-1 mt-1 text-gray-400">
+                          <button type="button" aria-label="Mover para cima" className="p-1 rounded hover:bg-gray-100 disabled:opacity-30" disabled={index===0}
+                            onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index-1,0,it); return list; }); persistIfChanged(); }}>↑</button>
+                          <button type="button" aria-label="Mover para baixo" className="p-1 rounded hover:bg-gray-100 disabled:opacity-30" disabled={index===categories.length-1}
+                            onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index+1,0,it); return list; }); persistIfChanged(); }}>↓</button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <AnimatePresence>
+                  {showUndo && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 12 }}
+                      className="mt-3 flex items-center justify-between gap-4 bg-purple-50 border border-purple-200 rounded-lg px-4 py-2 text-sm text-purple-700 shadow-sm"
+                    >
+                      <span>Ordem atualizada.</span>
+                      <div className="flex gap-2">
+                        <button onClick={handleUndo} className="px-3 py-1 rounded-md bg-purple-600 text-white hover:bg-purple-700 text-xs font-semibold">Desfazer</button>
+                        <button onClick={()=> setShowUndo(false)} className="px-3 py-1 rounded-md border border-purple-300 text-purple-700 hover:bg-purple-100 text-xs font-medium">Fechar</button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
             </div>
         </div>
     );
@@ -764,36 +959,64 @@ export default function AdminMenu() {
         .form-button-danger { @apply p-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors; }
       `}</style>
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <div><h1 className="text-3xl font-bold text-gray-800">Admin do Cardápio</h1><p className="text-gray-500 mt-1">Gerencie os itens e categorias.</p></div>
-          <div className="flex gap-2 mt-4 sm:mt-0">
-            <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'menu' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`} onClick={() => setActiveTab('menu')}> <FaThList /> Itens</button>
-            <button className={`px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors ${activeTab === 'categories' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`} onClick={() => setActiveTab('categories')}> <FaListAlt /> Categorias</button>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Admin do Cardápio</h1>
+            <p className="text-gray-500 mt-1 text-sm sm:text-base">Gerencie os itens e categorias.</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button className={`px-3 sm:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors text-sm sm:text-base ${activeTab === 'menu' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`} onClick={() => setActiveTab('menu')}>
+              <FaThList className="text-sm sm:text-base" /> Itens
+            </button>
+            <button className={`px-3 sm:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors text-sm sm:text-base ${activeTab === 'categories' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`} onClick={() => setActiveTab('categories')}>
+              <FaListAlt className="text-sm sm:text-base" /> Categorias
+            </button>
           </div>
         </div>
 
         {activeTab === 'menu' && (
           <div>
-            <div className="bg-white rounded-xl p-4 mb-6 flex flex-col md:flex-row justify-between items-center gap-4 border border-gray-200">
-              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full md:w-auto form-input">
-                <option value="todas">Filtrar por Todas as Categorias</option>
-                {categories.map((cat) => (<option key={cat.value} value={cat.value}>{cat.label}</option>))}
-              </select>
-              <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.05 }} className="w-full md:w-auto form-button-primary"><FaPlus /> Adicionar Novo Item</motion.button>
+            <div className="bg-white rounded-xl p-4 sm:p-6 mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full sm:w-auto form-input text-sm sm:text-base">
+                  <option value="todas">Filtrar por Todas as Categorias</option>
+                  {categories.map((cat) => (<option key={cat.value} value={cat.value}>{cat.label}</option>))}
+                </select>
+                <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.05 }} className="w-full sm:w-auto form-button-primary text-sm sm:text-base">
+                  <FaPlus className="text-sm sm:text-base" /> Adicionar Novo Item
+                </motion.button>
+              </div>
             </div>
             {loading ? <p className="text-center py-10">Carregando...</p> : error ? <p className="text-red-500 text-center py-10">{error}</p> : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                 {filteredItems.map((item) => (
-                  <motion.div key={item._id} layout className={`bg-white rounded-xl overflow-hidden border border-gray-200 flex flex-col justify-between transition-all hover:border-purple-600 ${item.isAvailable === false ? 'opacity-50' : ''}`}>
+                  <motion.div key={item._id} layout className={`bg-white rounded-lg sm:rounded-xl overflow-hidden border border-gray-200 flex flex-col justify-between transition-all hover:border-purple-600 ${item.isAvailable === false ? 'opacity-50' : ''}`}>
                     <div>
-                      <div className="relative h-40 w-full"><Image src={item.image || '/placeholder.jpg'} alt={item.name} layout="fill" className="object-cover" /></div>
-                      <div className="p-4"><h3 className="text-lg font-bold text-gray-900 truncate">{item.name}</h3><p className="text-gray-600 text-sm mt-1">R$ {(Number(item.price) || 0).toFixed(2)}</p></div>
+                      <div className="relative h-32 sm:h-40 w-full">
+                        <Image src={item.image || '/placeholder.jpg'} alt={item.name} layout="fill" className="object-cover" />
+                      </div>
+                      <div className="p-3 sm:p-4">
+                        <h3 className="text-base sm:text-lg font-bold text-gray-900 truncate">{item.name}</h3>
+                        <p className="text-gray-600 text-sm mt-1">R$ {(Number(item.price) || 0).toFixed(2)}</p>
+                      </div>
                     </div>
-                    <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center gap-2">
-                      <div className="flex flex-col items-center"><label className="relative inline-flex items-center cursor-pointer"><input type="checkbox" checked={item.isAvailable ?? true} onChange={(e) => handleAvailabilityChange(item, e.target.checked)} className="sr-only peer" /><div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-purple-300 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div></label><span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-600' : 'text-gray-500'}`}>{item.isAvailable ?? true ? 'Disponível' : 'Indisponível'}</span></div>
+                    <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-2">
+                      <div className="flex flex-col items-center">
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input type="checkbox" checked={item.isAvailable ?? true} onChange={(e) => handleAvailabilityChange(item, e.target.checked)} className="sr-only peer" />
+                          <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-purple-300 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                        </label>
+                        <span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-600' : 'text-gray-500'}`}>
+                          {item.isAvailable ?? true ? 'Disponível' : 'Indisponível'}
+                        </span>
+                      </div>
                       <div className='flex gap-2'>
-                        <button className="bg-purple-100 text-purple-700 p-2 rounded-lg hover:bg-purple-200" onClick={() => handleOpenModal(item)}><FaEdit /></button>
-                        <button className="bg-gray-200 text-gray-600 p-2 rounded-lg hover:bg-gray-300 disabled:opacity-50" onClick={() => handleDeleteItem(item._id, item.name)} disabled={deletingItems.has(item._id!)}>{deletingItems.has(item._id!) ? '...' : <FaTrash />}</button>
+                        <button className="bg-purple-100 text-purple-700 p-2 rounded-lg hover:bg-purple-200 transition-colors" onClick={() => handleOpenModal(item)}>
+                          <FaEdit className="text-sm sm:text-base" />
+                        </button>
+                        <button className="bg-gray-200 text-gray-600 p-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors" onClick={() => handleDeleteItem(item._id, item.name)} disabled={deletingItems.has(item._id!)}>
+                          {deletingItems.has(item._id!) ? '...' : <FaTrash className="text-sm sm:text-base" />}
+                        </button>
                       </div>
                     </div>
                   </motion.div>

@@ -54,10 +54,21 @@ export function generateReceiptText(pedido: Pedido): string {
     lines.push('================================');
     pedido.itens.forEach(item => {
         lines.push(`${item.quantidade}x ${item.nome}`);
-        if (item.size) lines.push(`  Tamanho: ${item.size}`);
-        if (item.border) lines.push(`  Borda: ${item.border}`);
+        if (item.size) {
+            const sizeTitle = (item as any).sizesTitle || 'Tamanho';
+            lines.push(`  ${sizeTitle}: ${item.size}`);
+        }
+        if (item.border) {
+            const borderTitle = (item as any).borderTitle || 'Borda';
+            lines.push(`  ${borderTitle}: ${item.border}`);
+        }
+        if ((item as any).flavors && (item as any).flavors.length > 0) {
+            const flavorsTitle = (item as any).flavorsTitle || 'Sabores';
+            lines.push(`  ${flavorsTitle}: ${(item as any).flavors.join(', ')}`);
+        }
         if (item.extras && item.extras.length > 0) {
-            lines.push(`  Extras: ${item.extras.join(', ')}`);
+            const extrasTitle = (item as any).extrasTitle || 'Extras';
+            lines.push(`  ${extrasTitle}: ${item.extras.join(', ')}`);
         }
         if (item.observacao) lines.push(`  Obs: ${item.observacao}`);
         lines.push(`  Subtotal: R$ ${(item.preco * item.quantidade).toFixed(2)}`);

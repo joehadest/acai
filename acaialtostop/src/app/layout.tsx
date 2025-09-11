@@ -2,7 +2,7 @@
 
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import Header from '@/components/Header';
+import ConditionalHeader from '@/components/ConditionalHeader';
 import { Providers } from './providers'; // Importe o novo componente
 
 // ... (a função generateMetadata continua a mesma) ...
@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       title: title,
       description: "Cardápio digital do Açai Alto Stop",
-      manifest: '/manifest.json',
+      manifest: '/favicon/site.webmanifest',
       appleWebApp: {
         capable: true,
         statusBarStyle: 'default',
@@ -52,13 +52,16 @@ export default function RootLayout({
         <html lang="pt-BR">
             <head>
                 {/* ... (o head continua o mesmo) ... */}
-                <link rel="icon" href="/favicon.ico" />
+                <link rel="icon" href="/favicon/favicon.ico" />
+                <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png" />
+                <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png" />
+                <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
                 {/* ... (o head continua o mesmo) ... */}
             </head>
             <body className="bg-gray-100 min-h-screen">
                 {/* Envolve tudo com o novo componente Providers */}
                 <Providers>
-                    <Header />
+                    <ConditionalHeader />
                     <main className="min-h-screen">
                         {children}
                     </main>
