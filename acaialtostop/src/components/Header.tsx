@@ -23,17 +23,14 @@ export default function Header() {
 
     useEffect(() => {
         if (showInfo) {
-            const scrollY = window.scrollY;
-            document.body.style.position = 'fixed';
-            document.body.style.top = `-${scrollY}px`;
-            document.body.style.width = '100%';
+            document.body.style.overflow = 'hidden';
         } else {
-            const scrollY = document.body.style.top;
-            document.body.style.position = '';
-            document.body.style.top = '';
-            document.body.style.width = '';
-            window.scrollTo(0, parseInt(scrollY || '0') * -1);
+            document.body.style.overflow = 'auto';
         }
+        // Garante que o scroll seja restaurado quando o componente for desmontado
+        return () => {
+            document.body.style.overflow = 'auto';
+        };
     }, [showInfo]);
 
     useEffect(() => {
@@ -99,7 +96,7 @@ export default function Header() {
     };
 
     return (
-    <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-40">
+    <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50 relative">
         <div className="max-w-7xl mx-auto px-4 py-2 h-24 flex justify-between items-center">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
@@ -154,7 +151,7 @@ export default function Header() {
                                                     animate={{ opacity: 1 }}
                                                     exit={{ opacity: 0 }}
                                                     transition={{ duration: 0.25 }}
-                                                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+                                                    className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-16"
                                                     onClick={() => setShowInfo(false)}
                                                 >
                                                         <motion.div

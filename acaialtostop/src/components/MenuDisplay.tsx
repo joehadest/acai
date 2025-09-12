@@ -395,7 +395,7 @@ export default function MenuDisplay() {
 
     return (
     <div className="min-h-screen bg-gray-100">
-            <div className="sticky top-0 z-30">
+            <div className="sticky top-0 z-40">
               <div className="bg-white/95 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm rounded-xl"> 
                 <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
                   <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300 to-transparent" />
