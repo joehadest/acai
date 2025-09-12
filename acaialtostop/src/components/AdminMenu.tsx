@@ -86,7 +86,23 @@ const ItemModal = ({
   const [flavorsArray, setFlavorsArray] = useState<{key: string, value: number}[]>([]);
   const [isCopyExtrasModalOpen, setIsCopyExtrasModalOpen] = useState(false);
   const [isCopyFlavorsModalOpen, setIsCopyFlavorsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('basic');
 
+  const tabs = [
+    { id: 'basic', label: 'Informações Básicas' },
+    { id: 'ingredients', label: 'Componentes' },
+    { id: 'sizes_flavors', label: 'Variações' },
+    { id: 'borders_extras', label: 'Adicionais' },
+  ];
+
+  useEffect(() => {
+    // Bloqueia a rolagem do body quando o modal está aberto
+    document.body.style.overflow = 'hidden';
+    // Restaura a rolagem quando o modal é fechado
+    return () => {
+      document.body.style.overflow = 'auto';
+    };
+  }, []); // Executa apenas uma vez na montagem e desmontagem do modal
 
   useEffect(() => {
     const initialFormData = {
@@ -342,205 +358,256 @@ const ItemModal = ({
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header Sticky */}
-          <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-4 sm:py-5 border-b bg-white/90 backdrop-blur rounded-t-2xl">
-            <div className="space-y-1">
-              <h2 className="text-xl sm:text-2xl font-bold text-purple-700 leading-tight tracking-tight">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
-              {formData.name && <p className="text-xs sm:text-sm text-purple-500 font-medium truncate max-w-[260px] sm:max-w-[420px]">{formData.name}</p>}
+          <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-3 sm:py-4 border-b bg-white/90 backdrop-blur rounded-t-2xl">
+            <div className="space-y-1 w-full">
+              <h2 className="text-lg sm:text-2xl font-bold text-purple-700 leading-tight tracking-tight">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
+              {formData.name && <p className="text-xs sm:text-sm text-purple-500 font-medium truncate max-w-full">{formData.name}</p>}
             </div>
             <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
-              <button type="button" onClick={onClose} className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold border border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600 transition text-sm sm:text-base">Fechar</button>
-              <button type="button" onClick={() => handleSubmit()} className="flex-1 sm:flex-none px-5 sm:px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow text-sm sm:text-base">Salvar</button>
+              <button type="button" onClick={onClose} className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold border border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600 transition text-xs sm:text-base">Fechar</button>
+              <button type="button" onClick={() => handleSubmit()} className="flex-1 sm:flex-none px-5 sm:px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow text-xs sm:text-base">Salvar</button>
             </div>
+          </div>
+
+          {/* Navegação por Abas */}
+          <div className="px-4 sm:px-6 border-b border-gray-200">
+            <nav className="-mb-px flex space-x-4 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors
+                    ${activeTab === tab.id
+                      ? 'border-purple-500 text-purple-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }
+                  `}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
           </div>
 
           {/* Corpo Scroll */}
           <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-6 sm:space-y-8">
             {/* Seção Básica */}
-            <section className="grid md:grid-cols-2 gap-5 sm:gap-6">
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="form-label">Nome *</label>
-                  <input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required />
-                </div>
-                <div>
-                  <label className="form-label">Categoria *</label>
-                  <select name="category" value={formData.category} onChange={handleChange} className="form-input" required>
-                    {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Preço Base (R$) *</label>
-                  <input type="number" name="price" value={formData.price} onChange={handleChange} className="form-input" required step="0.01" />
-                </div>
-              </div>
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="form-label">URL da Imagem</label>
-                  <input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" />
-                </div>
-                <div>
-                  <label className="form-label">Descrição *</label>
-                  <textarea name="description" value={formData.description} onChange={handleChange} className="form-input min-h-[120px]" />
-                </div>
-                <label className="inline-flex items-center gap-2 mt-2">
-                  <input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" />
-                  <span className="text-sm text-gray-700">Item em destaque</span>
-                </label>
-              </div>
-            </section>
-
-            {/* Ingredientes */}
-            <section className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-800">Ingredientes</h3>
-                <button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button>
-              </div>
-              <div className="space-y-3">
-                {(formData.ingredients || []).map((ing, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input type="text" value={ing} onChange={e => handleIngredientChange(index, e.target.value)} className="form-input flex-grow" />
-                    <button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2"><FaTrash /></button>
-                  </div>
-                ))}
-                {(!formData.ingredients || formData.ingredients.length === 0) && (
-                  <p className="text-xs text-gray-500">Nenhum ingrediente adicionado.</p>
-                )}
-              </div>
-            </section>
-
-            {/* Tamanhos & Sabores Grid */}
-            <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
-              {/* Tamanhos */}
-              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                  <h3 className="font-semibold text-gray-800">Tamanhos e Preços</h3>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600">Título:</label>
-                      <input type="text" value={formData.sizesTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, sizesTitle: e.target.value }))} className="form-input w-44" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600">Máx.:</label>
-                      <input type="number" min={1} max={10} value={formData.maxSizes ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxSizes: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
-                    </div>
-                    <button type="button" onClick={addSizeField} className="form-button-secondary text-xs">+ Tamanho</button>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {sizesArray.map(({ key, value }, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="flex flex-col">
-                        <button type="button" onClick={() => moveSize(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
-                        <button type="button" onClick={() => moveSize(index, 'down')} disabled={index === sizesArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeTab}
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -10, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {activeTab === 'basic' && (
+                  <section className="grid md:grid-cols-2 gap-5 sm:gap-6">
+                    <div className="flex flex-col gap-4">
+                      <div>
+                        <label className="form-label">Nome *</label>
+                        <input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required />
                       </div>
-                      <input type="text" value={key} onChange={e => handleSizeChange(index, 'key', e.target.value)} className="form-input w-40" placeholder="Ex: Pequena" />
-                      <span className="text-gray-500">R$</span>
-                      <input type="number" value={value} onChange={e => handleSizeChange(index, 'value', e.target.value)} className="form-input flex-grow" step="0.01" />
-                      <button type="button" onClick={() => removeSizeField(index)} className="form-button-danger p-2"><FaTrash /></button>
-                    </div>
-                  ))}
-                  {sizesArray.length === 0 && <p className="text-xs text-gray-500">Nenhum tamanho configurado.</p>}
-                </div>
-              </div>
-
-              {/* Sabores */}
-              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                  <h3 className="font-semibold text-gray-800">Sabores e Preços</h3>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600">Título:</label>
-                      <input type="text" value={formData.flavorsTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, flavorsTitle: e.target.value }))} className="form-input w-44" />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600">Máx.:</label>
-                      <input type="number" min={1} max={10} value={formData.maxFlavors ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxFlavors: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
-                    </div>
-                    <button type="button" onClick={addFlavorField} className="form-button-secondary text-xs">+ Sabor</button>
-                    <button type="button" onClick={() => setIsCopyFlavorsModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {flavorsArray.map(({ key, value }, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="flex flex-col">
-                        <button type="button" onClick={() => moveFlavor(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
-                        <button type="button" onClick={() => moveFlavor(index, 'down')} disabled={index === flavorsArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
+                      <div>
+                        <label className="form-label">Categoria *</label>
+                        <select name="category" value={formData.category} onChange={handleChange} className="form-input" required>
+                          {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
                       </div>
-                      <input type="text" value={key} onChange={e => handleFlavorChange(index, 'key', e.target.value)} className="form-input w-40" placeholder="Ex: Chocolate" />
-                      <span className="text-gray-500">R$</span>
-                      <input type="number" value={value} onChange={e => handleFlavorChange(index, 'value', e.target.value)} className="form-input flex-grow" step="0.01" />
-                      <button type="button" onClick={() => removeFlavorField(index)} className="form-button-danger p-2"><FaTrash /></button>
+                      <div>
+                        <label className="form-label">Preço Base (R$) *</label>
+                        <input type="number" name="price" value={formData.price} onChange={handleChange} className="form-input" required step="0.01" />
+                      </div>
                     </div>
-                  ))}
-                  {flavorsArray.length === 0 && <p className="text-xs text-gray-500">Nenhum sabor configurado.</p>}
-                </div>
-                {allowHalfAndHalfForCategory && (
-                  <div className="mt-6 p-4 rounded-lg border border-purple-200 bg-purple-50/70">
-                    <h4 className="text-sm font-semibold text-purple-700 mb-1">Opção Meio a Meio</h4>
-                    <p className="text-xs text-purple-600">Clientes poderão montar dois sabores diferentes.</p>
-                  </div>
+                    <div className="flex flex-col gap-4">
+                      <div>
+                        <label className="form-label">URL da Imagem</label>
+                        <input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" />
+                      </div>
+                      <div>
+                        <label className="form-label">Descrição *</label>
+                        <textarea name="description" value={formData.description} onChange={handleChange} className="form-input min-h-[120px]" />
+                      </div>
+                      <label className="inline-flex items-center gap-2 mt-2">
+                        <input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" />
+                        <span className="text-sm text-gray-700">Item em destaque</span>
+                      </label>
+                    </div>
+                  </section>
                 )}
-              </div>
-            </section>
 
-            {/* Bordas & Extras */}
-            <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
-              {/* Borda */}
-              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                  <h3 className="font-semibold text-gray-800">Bordas</h3>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600">Título:</label>
-                      <input type="text" value={formData.borderTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, borderTitle: e.target.value }))} className="form-input w-44" />
+                {activeTab === 'ingredients' && (
+                  <section className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5 max-w-3xl mx-auto">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-800">Componentes / Ingredientes</h3>
+                      <button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button>
                     </div>
-                    <button type="button" onClick={() => addDynamicField('borderOptions')} className="form-button-secondary text-xs">+ Borda</button>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {Object.entries(formData.borderOptions || {}).map(([key, value], index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input type="text" value={key} onChange={e => handleDynamicChange('borderOptions', key, 'name', e.target.value)} className="form-input w-40" />
-                      <span className="text-gray-500">+ R$</span>
-                      <input type="number" value={value as number} onChange={e => handleDynamicChange('borderOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" />
-                      <button type="button" onClick={() => removeDynamicField('borderOptions', key)} className="form-button-danger p-2"><FaTrash /></button>
+                    <div className="space-y-3">
+                      {(formData.ingredients || []).map((ing, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <input type="text" value={ing} onChange={e => handleIngredientChange(index, e.target.value)} className="form-input flex-grow" placeholder={`Ingrediente ${index + 1}`} />
+                          <button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2"><FaTrash /></button>
+                        </div>
+                      ))}
+                      {(!formData.ingredients || formData.ingredients.length === 0) && (
+                        <p className="text-xs text-center text-gray-500 py-4">Nenhum ingrediente adicionado.</p>
+                      )}
                     </div>
-                  ))}
-                  {(!formData.borderOptions || Object.keys(formData.borderOptions).length === 0) && <p className="text-xs text-gray-500">Nenhuma borda configurada.</p>}
-                </div>
-              </div>
+                  </section>
+                )}
 
-              {/* Extras */}
-              <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                  <h3 className="font-semibold text-gray-800">Extras</h3>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600">Título:</label>
-                      <input type="text" value={formData.extrasTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, extrasTitle: e.target.value }))} className="form-input w-44" />
+                {activeTab === 'sizes_flavors' && (
+                  <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
+                    {/* Tamanhos */}
+                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                        <h3 className="font-semibold text-gray-800">Tamanhos e Preços</h3>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-600">Título:</label>
+                            <input type="text" value={formData.sizesTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, sizesTitle: e.target.value }))} className="form-input w-44" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-600">Máx.:</label>
+                            <input type="number" min={1} max={10} value={formData.maxSizes ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxSizes: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
+                          </div>
+                          <button type="button" onClick={addSizeField} className="form-button-secondary text-xs">+ Tamanho</button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        {sizesArray.map(({ key, value }, index) => (
+                          <div key={index} className="flex items-start sm:items-center gap-2">
+                            <div className="flex flex-col pt-1 sm:pt-0">
+                              <button type="button" onClick={() => moveSize(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
+                              <button type="button" onClick={() => moveSize(index, 'down')} disabled={index === sizesArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
+                            </div>
+                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <input type="text" value={key} onChange={e => handleSizeChange(index, 'key', e.target.value)} className="form-input" placeholder="Ex: Pequena" />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 text-sm">R$</span>
+                                    <input type="number" value={value} onChange={e => handleSizeChange(index, 'value', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => removeSizeField(index)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
+                          </div>
+                        ))}
+                        {sizesArray.length === 0 && <p className="text-xs text-center text-gray-500 py-4">Nenhum tamanho configurado.</p>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs text-gray-600">Máx.:</label>
-                      <input type="number" min={1} max={10} value={formData.maxExtras ?? 2} onChange={e => setFormData(prev => ({ ...prev, maxExtras: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
+
+                    {/* Sabores */}
+                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                        <h3 className="font-semibold text-gray-800">Sabores e Preços</h3>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-600">Título:</label>
+                            <input type="text" value={formData.flavorsTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, flavorsTitle: e.target.value }))} className="form-input w-44" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-600">Máx.:</label>
+                            <input type="number" min={1} max={10} value={formData.maxFlavors ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxFlavors: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
+                          </div>
+                          <button type="button" onClick={addFlavorField} className="form-button-secondary text-xs">+ Sabor</button>
+                          <button type="button" onClick={() => setIsCopyFlavorsModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        {flavorsArray.map(({ key, value }, index) => (
+                          <div key={index} className="flex items-start sm:items-center gap-2">
+                            <div className="flex flex-col pt-1 sm:pt-0">
+                              <button type="button" onClick={() => moveFlavor(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
+                              <button type="button" onClick={() => moveFlavor(index, 'down')} disabled={index === flavorsArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
+                            </div>
+                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <input type="text" value={key} onChange={e => handleFlavorChange(index, 'key', e.target.value)} className="form-input" placeholder="Ex: Chocolate" />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 text-sm">R$</span>
+                                    <input type="number" value={value} onChange={e => handleFlavorChange(index, 'value', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => removeFlavorField(index)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
+                          </div>
+                        ))}
+                        {flavorsArray.length === 0 && <p className="text-xs text-center text-gray-500 py-4">Nenhum sabor configurado.</p>}
+                      </div>
+                      {allowHalfAndHalfForCategory && (
+                        <div className="mt-6 p-4 rounded-lg border border-purple-200 bg-purple-50/70">
+                          <h4 className="text-sm font-semibold text-purple-700 mb-1">Opção Meio a Meio</h4>
+                          <p className="text-xs text-purple-600">Clientes poderão montar dois sabores diferentes.</p>
+                        </div>
+                      )}
                     </div>
-                    <button type="button" onClick={() => addDynamicField('extraOptions')} className="form-button-secondary text-xs">+ Extra</button>
-                    <button type="button" onClick={() => setIsCopyExtrasModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {Object.entries(formData.extraOptions || {}).map(([key, value], index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input type="text" value={key} onChange={e => handleDynamicChange('extraOptions', key, 'name', e.target.value)} className="form-input w-40" />
-                      <span className="text-gray-500">+ R$</span>
-                      <input type="number" value={value as number} onChange={e => handleDynamicChange('extraOptions', key, 'price', e.target.value)} className="form-input flex-grow" step="0.01" />
-                      <button type="button" onClick={() => removeDynamicField('extraOptions', key)} className="form-button-danger p-2"><FaTrash /></button>
+                  </section>
+                )}
+
+                {activeTab === 'borders_extras' && (
+                  <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
+                    {/* Borda */}
+                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                        <h3 className="font-semibold text-gray-800">Bordas</h3>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-600">Título:</label>
+                            <input type="text" value={formData.borderTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, borderTitle: e.target.value }))} className="form-input w-44" />
+                          </div>
+                          <button type="button" onClick={() => addDynamicField('borderOptions')} className="form-button-secondary text-xs">+ Borda</button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        {Object.entries(formData.borderOptions || {}).map(([key, value], index) => (
+                          <div key={index} className="flex items-start sm:items-center gap-2">
+                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <input type="text" value={key} onChange={e => handleDynamicChange('borderOptions', key, 'name', e.target.value)} className="form-input" placeholder={`Borda ${index + 1}`} />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 text-sm">+ R$</span>
+                                    <input type="number" value={value as number} onChange={e => handleDynamicChange('borderOptions', key, 'price', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => removeDynamicField('borderOptions', key)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
+                          </div>
+                        ))}
+                        {(!formData.borderOptions || Object.keys(formData.borderOptions).length === 0) && <p className="text-xs text-center text-gray-500 py-4">Nenhuma borda configurada.</p>}
+                      </div>
                     </div>
-                  ))}
-                  {(!formData.extraOptions || Object.keys(formData.extraOptions).length === 0) && <p className="text-xs text-gray-500">Nenhum extra configurado.</p>}
-                </div>
-              </div>
-            </section>
+
+                    {/* Extras */}
+                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+                        <h3 className="font-semibold text-gray-800">Adicionais</h3>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-600">Título:</label>
+                            <input type="text" value={formData.extrasTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, extrasTitle: e.target.value }))} className="form-input w-44" />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <label className="text-xs text-gray-600">Máx.:</label>
+                            <input type="number" min={1} max={10} value={formData.maxExtras ?? 2} onChange={e => setFormData(prev => ({ ...prev, maxExtras: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
+                          </div>
+                          <button type="button" onClick={() => addDynamicField('extraOptions')} className="form-button-secondary text-xs">+ Extra</button>
+                          <button type="button" onClick={() => setIsCopyExtrasModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        {Object.entries(formData.extraOptions || {}).map(([key, value], index) => (
+                          <div key={index} className="flex items-start sm:items-center gap-2">
+                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <input type="text" value={key} onChange={e => handleDynamicChange('extraOptions', key, 'name', e.target.value)} className="form-input" placeholder={`Extra ${index + 1}`} />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-gray-500 text-sm">+ R$</span>
+                                    <input type="number" value={value as number} onChange={e => handleDynamicChange('extraOptions', key, 'price', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
+                                </div>
+                            </div>
+                            <button type="button" onClick={() => removeDynamicField('extraOptions', key)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
+                          </div>
+                        ))}
+                        {(!formData.extraOptions || Object.keys(formData.extraOptions).length === 0) && <p className="text-xs text-center text-gray-500 py-4">Nenhum extra configurado.</p>}
+                      </div>
+                    </div>
+                  </section>
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
 
           {/* Footer removido conforme solicitação (botões já existem no topo) */}
@@ -581,6 +648,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
   const [showUndo, setShowUndo] = useState(false);
   const undoTimerRef = useRef<any>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const [orderDirty, setOrderDirty] = useState(false); // indica se a ordem foi alterada e não salva
 
   const scrollFormIntoView = () => {
     if (!formRef.current) return;
@@ -682,26 +750,40 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
         dragItemIndex.current = index;
         return list;
       });
+      setOrderDirty(true);
     };
 
     const sameOrder = (a: typeof categories, b: typeof categories) => a.map(c=>c._id).join('|') === b.map(c=>c._id).join('|');
 
     const persistIfChanged = async () => {
-      if (!previousSnapshot.current) return;
-      if (sameOrder(previousSnapshot.current, categories)) return; // nada mudou
+      // Mantido para retrocompatibilidade, mas agora usamos saveOrder explicitamente
+      await saveOrder();
+    };
+
+    const saveOrder = async () => {
+      if (!categories.length) return;
       setIsSavingOrder(true);
       try {
-        await fetch('/api/categories', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ categories: categories.map(c=>({_id:c._id})) }) });
+        await fetch('/api/categories', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categories: categories.map(c => ({ _id: c._id })) }),
+        });
+        previousSnapshot.current = [...categories];
+        setOrderDirty(false);
         onUpdate();
         beginUndoWindow();
-      } catch { alert('Falha ao salvar nova ordem'); }
-      finally { setIsSavingOrder(false); }
+      } catch {
+        alert('Falha ao salvar nova ordem');
+      } finally {
+        setIsSavingOrder(false);
+      }
     };
 
     const handleDrop = async () => {
       setDraggingIndex(null);
       dragItemIndex.current = null;
-      await persistIfChanged();
+      setOrderDirty(true); // usuário precisa clicar em salvar
     };
 
     return (
@@ -745,10 +827,21 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                 </button>
             </form>
             <div className="overflow-x-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">Arraste para reordenar</span>
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 gap-2">
+                  <span className="text-sm text-gray-500">Arraste para reordenar ou use as setas. Clique em "Salvar ordem" para aplicar.</span>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {orderDirty && !isSavingOrder && (
+                      <span className="text-xs font-medium text-amber-600">Alterações não salvas</span>
+                    )}
                     {isSavingOrder && <span className="text-xs text-purple-600 animate-pulse">Salvando...</span>}
+                    <button
+                      type="button"
+                      onClick={saveOrder}
+                      disabled={!orderDirty || isSavingOrder}
+                      className="px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1 bg-purple-600 text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-purple-700 transition"
+                    >
+                      <FaSave className="w-3 h-3" /> Salvar ordem
+                    </button>
                   </div>
                 </div>
                 {/* Tabela (desktop) */}
@@ -806,9 +899,9 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                             </button>
                             <div className="flex flex-col ml-1">
                               <button type="button" aria-label="Mover para cima" className="text-gray-400 hover:text-gray-700 p-0.5 disabled:opacity-30" disabled={index===0}
-                                onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index-1,0,it); return list; }); persistIfChanged(); }}>&uarr;</button>
+                                onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index-1,0,it); return list; }); setOrderDirty(true); }}>&uarr;</button>
                               <button type="button" aria-label="Mover para baixo" className="text-gray-400 hover:text-gray-700 p-0.5 disabled:opacity-30" disabled={index===categories.length-1}
-                                onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index+1,0,it); return list; }); persistIfChanged(); }}>&darr;</button>
+                                onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index+1,0,it); return list; }); setOrderDirty(true); }}>&darr;</button>
                             </div>
                           </td>
                         </tr>
@@ -848,9 +941,9 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
                         </div>
                         <div className="flex gap-1 mt-1 text-gray-400">
                           <button type="button" aria-label="Mover para cima" className="p-1 rounded hover:bg-gray-100 disabled:opacity-30" disabled={index===0}
-                            onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index-1,0,it); return list; }); persistIfChanged(); }}>↑</button>
+                            onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index-1,0,it); return list; }); setOrderDirty(true); }}>↑</button>
                           <button type="button" aria-label="Mover para baixo" className="p-1 rounded hover:bg-gray-100 disabled:opacity-30" disabled={index===categories.length-1}
-                            onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index+1,0,it); return list; }); persistIfChanged(); }}>↓</button>
+                            onClick={() => { previousSnapshot.current=[...categories]; setCategories(prev=>{ const list=[...prev]; const [it]=list.splice(index,1); list.splice(index+1,0,it); return list; }); setOrderDirty(true); }}>↓</button>
                         </div>
                       </div>
                     </li>
