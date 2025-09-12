@@ -434,23 +434,23 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                                   />
                                 </div>
                               </div>
+
+                              {/* Botão Adicionar dentro da área de seleção */}
+                              <div className="mt-6">
+                                <motion.button
+                                  whileHover={{ scale: 1.02 }}
+                                  whileTap={{ scale: 0.98 }}
+                                  type="submit"
+                                  disabled={isHalf && (!half1 || !half2)}
+                                  className="w-full px-8 py-4 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg flex justify-between items-center"
+                                >
+                                  <span>Adicionar</span>
+                                  <span>R$ {calculateTotal().toFixed(2)}</span>
+                                </motion.button>
+                              </div>
                             </div>
                           </div>
                         </form>
-                      </div>
-
-                      {/* Footer Sticky */}
-                      <div className="sticky bottom-0 z-10 px-6 py-4 border-t bg-white/95 backdrop-blur rounded-b-2xl">
-                          <motion.button
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            onClick={(e) => { e.preventDefault(); const fake = { preventDefault: () => {} } as any; handleSubmit(fake); }}
-                            disabled={isHalf && (!half1 || !half2)}
-                            className="w-full px-8 py-4 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg flex justify-between items-center"
-                          >
-                            <span>Adicionar</span>
-                            <span>R$ {calculateTotal().toFixed(2)}</span>
-                          </motion.button>
                       </div>
                     </motion.div>
             </motion.div>
