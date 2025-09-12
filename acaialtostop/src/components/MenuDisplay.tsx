@@ -51,6 +51,11 @@ const categoryVariants = {
 
 export default function MenuDisplay() {
     const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
+    const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
+    const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
+    const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+    const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+
     useEffect(() => {
         async function fetchSettingsData() {
             try {
@@ -89,6 +94,44 @@ export default function MenuDisplay() {
     const [menuTitle, setMenuTitle] = useState("");
     const [menuSubtitle, setMenuSubtitle] = useState("");
     const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+
+    useEffect(() => {
+        const isModalOpen = selectedItem !== null || selectedPasta !== null;
+        if (isModalOpen) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
+
+        // Cleanup function to restore scroll on component unmount
+        return () => {
+            document.body.style.overflow = 'auto';
+        };
+    }, [selectedItem, selectedPasta]);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        const category = entry.target.id.replace('category-', '');
+                        setSelectedCategory(category);
+                    }
+                });
+            },
+            {
+                rootMargin: '-20% 0px -80% 0px',
+                threshold: 0
+            }
+        );
+
+        const categoryElements = categories.map(cat => document.getElementById(`category-${cat.value}`)).filter(Boolean);
+        categoryElements.forEach(el => observer.observe(el!));
+
+        return () => {
+            categoryElements.forEach(el => observer.unobserve(el!));
+        };
+    }, [categories]);
 
     // Função para recarregar dados do menu
     const refreshMenuData = async () => {
@@ -209,11 +252,8 @@ export default function MenuDisplay() {
             clearInterval(interval);
         };
     }, [tipoEntrega]);
-    const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
-    const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
-    const [showCategoriesModal, setShowCategoriesModal] = useState(false);
-    const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
-    
+
+
     const handleCategoryClick = (category: string | null) => {
         setSelectedCategory(category);
         if (category) {
@@ -354,12 +394,14 @@ export default function MenuDisplay() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            <div className="sticky top-[112px] z-30 bg-gray-100/80 backdrop-blur-sm py-4 mb-6">
-                <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-100">
+            <div className="sticky top-0 z-30">
+              <div className="bg-white/95 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm rounded-xl"> 
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
+                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300 to-transparent" />
                     <motion.div
                         ref={categoriesContainerRef}
-                        className="flex gap-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-purple-600 scrollbar-track-gray-200"
+                            className="flex gap-2 overflow-x-auto pb-2 no-scrollbar"
                         style={{ WebkitOverflowScrolling: 'touch', scrollSnapType: 'x mandatory' }}
                     >
                         {categories.map(category => (
@@ -367,15 +409,19 @@ export default function MenuDisplay() {
                                 key={category.value}
                                 data-category={category.value}
                                 onClick={() => handleCategoryClick(category.value)}
-                                className={`px-4 py-2 rounded-full whitespace-nowrap flex-shrink-0 transition-colors shadow-sm ${selectedCategory === category.value
-                                    ? 'bg-purple-600 text-white'
-                                    : 'bg-white text-gray-700 hover:bg-gray-200'
+                                className={`relative px-4 py-2 rounded-md whitespace-nowrap flex-shrink-0 text-xs font-semibold tracking-wide transition-colors ${selectedCategory === category.value
+                                    ? 'text-purple-700 bg-purple-50'
+                                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
                                     }`}
                             >
-                                {category.label}
+                                <span className="uppercase">{category.label}</span>
+                                {selectedCategory === category.value && (
+                                  <motion.span layoutId="catUnderline" className="absolute left-2 right-2 -bottom-1 h-[3px] rounded-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500" />
+                                )}
                             </motion.button>
                         ))}
                     </motion.div>
+                </div>
                 </div>
             </div>
 

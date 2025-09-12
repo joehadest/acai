@@ -58,15 +58,14 @@ export default function RootLayout({
                 <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
                 {/* ... (o head continua o mesmo) ... */}
             </head>
-            <body className="bg-gray-100 min-h-screen">
-                {/* Envolve tudo com o novo componente Providers */}
-                <Providers>
-                    <ConditionalHeader />
-                    <main className="min-h-screen">
-                        {children}
-                    </main>
-                </Providers>
-            </body>
-        </html>
+      <body className="bg-gray-100 min-h-screen m-0">
+        <ConditionalHeader />
+        <Providers>
+          <main className="min-h-screen">
+            {children}
+          </main>
+        </Providers>
+      </body>
+    </html>
     );
 }

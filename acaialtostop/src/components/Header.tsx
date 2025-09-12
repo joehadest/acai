@@ -14,6 +14,7 @@ export default function Header() {
     const [businessHours, setBusinessHours] = useState<BusinessHoursConfig | null>(null);
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<any>({});
+    // Altura fixa definida via layout (--header-height). Removido cálculo dinâmico.
 
     const checkOpenStatus = useCallback(() => {
         if (!businessHours) return false;
@@ -98,8 +99,8 @@ export default function Header() {
     };
 
     return (
-        <header className="bg-white shadow-md sticky top-0 z-40">
-            <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+    <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-2 h-24 flex justify-between items-center">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -108,13 +109,13 @@ export default function Header() {
                     <Image
                         src={settings.logoUrl || "/logo.jpg"}
                         alt="Logo"
-                        width={80}
-                        height={80}
-                        className="rounded-full bg-gray-200 shadow"
+                        width={64}
+                        height={64}
+                        className="rounded-full bg-gray-200 shadow-sm border border-gray-300 object-cover"
                         priority
                     />
                     <button
-                        className="ml-2 bg-purple-600 text-white p-2 rounded-full shadow hover:bg-purple-700 transition-colors flex items-center justify-center"
+                        className="ml-2 bg-purple-600 text-white p-2 rounded-full shadow-sm hover:bg-purple-700 transition-colors flex items-center justify-center"
                         onClick={() => setShowInfo(true)}
                         aria-label="Informações do restaurante"
                     >
@@ -130,9 +131,9 @@ export default function Header() {
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg ${isOpen
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium tracking-wide ${isOpen
                             ? 'bg-purple-600 text-white'
-                            : 'bg-gray-200 text-gray-800'
+                            : 'bg-gray-100 text-gray-700 border border-gray-300'
                             }`}
                         disabled={loading}
                     >

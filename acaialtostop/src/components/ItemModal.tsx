@@ -202,7 +202,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                 onClick={onClose}
             >
                 <motion.div
-                    className="relative w-full max-w-5xl bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-purple-200 flex flex-col max-h-[92vh]"
+                    className="relative w-full max-w-5xl bg-white/95 backdrop-blur rounded-2xl shadow-2xl border border-purple-200 flex flex-col max-h-[95vh]"
                     variants={modalVariants}
                     onClick={e => e.stopPropagation()}
                 >
@@ -440,29 +440,17 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                       </div>
 
                       {/* Footer Sticky */}
-                      <div className="sticky bottom-0 z-10 px-6 py-4 border-t bg-white/95 backdrop-blur rounded-b-2xl flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-                        <div>
-                          <span className="text-xs uppercase tracking-wide text-gray-500 block">Total</span>
-                          <div className="text-2xl font-bold text-purple-700">R$ {calculateTotal().toFixed(2)}</div>
-                        </div>
-                        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                          <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-6 py-3 rounded-lg font-semibold border border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600 transition"
-                          >
-                            Cancelar
-                          </button>
+                      <div className="sticky bottom-0 z-10 px-6 py-4 border-t bg-white/95 backdrop-blur rounded-b-2xl">
                           <motion.button
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             onClick={(e) => { e.preventDefault(); const fake = { preventDefault: () => {} } as any; handleSubmit(fake); }}
                             disabled={isHalf && (!half1 || !half2)}
-                            className="px-8 py-3 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md"
+                            className="w-full px-8 py-4 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-lg flex justify-between items-center"
                           >
-                            Adicionar
+                            <span>Adicionar</span>
+                            <span>R$ {calculateTotal().toFixed(2)}</span>
                           </motion.button>
-                        </div>
                       </div>
                     </motion.div>
             </motion.div>
