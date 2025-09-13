@@ -2,6 +2,7 @@
 
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { FaExclamationCircle, FaMapMarkerAlt, FaClock, FaPhoneAlt, FaMoneyBillWave } from 'react-icons/fa';
@@ -14,6 +15,7 @@ export default function Header() {
     const [businessHours, setBusinessHours] = useState<BusinessHoursConfig | null>(null);
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<any>({});
+    const [mounted, setMounted] = useState(false);
     // Altura fixa definida via layout (--header-height). Removido cálculo dinâmico.
 
     const checkOpenStatus = useCallback(() => {
@@ -61,6 +63,7 @@ export default function Header() {
         return () => clearInterval(interval);
     }, [businessHours, checkOpenStatus]);
     
+    useEffect(() => { setMounted(true); }, []);
     const renderBusinessHours = () => {
         if (!businessHours) {
             return <p>Carregando horários...</p>;
@@ -96,7 +99,7 @@ export default function Header() {
     };
 
     return (
-    <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50 relative">
+    <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-[10000] relative">
         <div className="max-w-7xl mx-auto px-4 py-2 h-24 flex justify-between items-center">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
@@ -143,17 +146,26 @@ export default function Header() {
                 </motion.div>
             </div>
 
-            {/* Modal de informações do restaurante */}
-                        {showInfo && (
-                            <AnimatePresence>
-                                                <motion.div
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    exit={{ opacity: 0 }}
-                                                    transition={{ duration: 0.25 }}
-                                                    className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-16"
-                                                    onClick={() => setShowInfo(false)}
-                                                >
+            {/* Modal de informações do restaurante - renderizado via Portal */}
+            {mounted && showInfo && createPortal(
+                <AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className="fixed inset-0 z-[10001] flex items-start justify-center bg-black/60 px-4 pt-16"
+                        onClick={() => setShowInfo(false)}
+                        style={{ 
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            width: '100vw',
+                            height: '100vh'
+                        }}
+                    >
                                                         <motion.div
                                                             initial={{ opacity: 0, scale: 0.9, y: 24 }}
                                                             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -227,8 +239,9 @@ export default function Header() {
                                         </div>
                                     </motion.div>
                                 </motion.div>
-                            </AnimatePresence>
-                        )}
+                </AnimatePresence>,
+                document.body
+            )}
         </header>
     );
 }

@@ -312,17 +312,52 @@ const ItemModal = ({
 
   const handleSubmit = (e?: FormEvent) => {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    // Validações básicas antes de enviar
+    const trimmedName = (formData.name || '').trim();
+    const trimmedDescription = (formData.description || '').trim();
+    const category = (formData.category || '').trim();
+
+    if (!trimmedName) {
+      alert('Nome é obrigatório.');
+      return;
+    }
+    if (!trimmedDescription) {
+      alert('Descrição é obrigatória.');
+      return;
+    }
+    if (!category) {
+      alert('Categoria é obrigatória.');
+      return;
+    }
+    // Preço base deve ser >= 0 (já que schema permite min 0)
+    const priceNumber = Number(formData.price);
+    if (Number.isNaN(priceNumber) || priceNumber < 0) {
+      alert('Preço base inválido.');
+      return;
+    }
+
+    // Monta objetos filtrando chaves vazias
     const sizesAsObject = sizesArray.reduce((acc, { key, value }) => {
-        acc[key] = value;
+        const k = key.trim();
+        if (k) acc[k] = value;
         return acc;
     }, {} as { [key: string]: number });
 
     const flavorsAsObject = flavorsArray.reduce((acc, { key, value }) => {
-        acc[key] = value;
+        const k = key.trim();
+        if (k) acc[k] = value;
         return acc;
     }, {} as { [key: string]: number });
 
-    onSave({ ...formData, sizes: sizesAsObject, flavorOptions: flavorsAsObject });
+    onSave({
+      ...formData,
+      name: trimmedName,
+      description: trimmedDescription,
+      category,
+      price: priceNumber,
+      sizes: sizesAsObject,
+      flavorOptions: flavorsAsObject,
+    });
   };
 
   const selectedCategoryObj = categories.find(c => c.value === formData.category);
@@ -1042,78 +1077,207 @@ export default function AdminMenu() {
   const filteredItems = menuItems.filter((item) => selectedCategory === 'todas' || item.category === selectedCategory);
 
   return (
-    <div className="bg-gray-100 min-h-screen text-gray-900 p-4 sm:p-6 lg:p-8">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen text-gray-900 p-4 sm:p-6 lg:p-8">
       <style jsx global>{`
-        .form-input { @apply w-full mt-1 p-2 bg-gray-50 border border-gray-300 rounded-md text-gray-900 focus:ring-purple-500 focus:border-purple-500 transition-colors; }
+        .form-input { @apply w-full mt-1 p-2 bg-white border border-gray-200 rounded-lg text-gray-900 focus:ring-purple-500 focus:border-purple-500 transition-all shadow-sm; }
         .form-label { @apply block text-sm font-medium text-gray-700; }
         .form-checkbox { @apply h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500; }
-        .form-button-primary { @apply px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center font-semibold; }
-        .form-button-secondary { @apply px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors; }
-        .form-button-danger { @apply p-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors; }
+        .form-button-primary { @apply px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all flex items-center justify-center font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5; }
+        .form-button-secondary { @apply px-4 py-2 bg-white text-gray-800 rounded-lg hover:bg-gray-50 transition-all border border-gray-200 shadow-sm hover:shadow-md; }
+        .form-button-danger { @apply p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all border border-red-200; }
       `}</style>
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Admin do Cardápio</h1>
-            <p className="text-gray-500 mt-1 text-sm sm:text-base">Gerencie os itens e categorias.</p>
-          </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <button className={`px-3 sm:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors text-sm sm:text-base ${activeTab === 'menu' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`} onClick={() => setActiveTab('menu')}>
-              <FaThList className="text-sm sm:text-base" /> Itens
-            </button>
-            <button className={`px-3 sm:px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors text-sm sm:text-base ${activeTab === 'categories' ? 'bg-purple-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`} onClick={() => setActiveTab('categories')}>
-              <FaListAlt className="text-sm sm:text-base" /> Categorias
-            </button>
+        {/* Header aprimorado com gradiente */}
+        <div className="bg-gradient-to-r from-purple-600 via-purple-700 to-purple-800 rounded-2xl p-6 sm:p-8 mb-8 shadow-xl">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 backdrop-blur-sm p-3 rounded-xl">
+                <FaThList className="text-2xl text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white">Admin do Cardápio</h1>
+                <p className="text-purple-100 mt-1 text-sm sm:text-base">Gerencie os itens e categorias do seu menu</p>
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <button 
+                className={`px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all text-sm sm:text-base ${
+                  activeTab === 'menu' 
+                    ? 'bg-white text-purple-700 shadow-md' 
+                    : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+                }`} 
+                onClick={() => setActiveTab('menu')}
+              >
+                <FaThList className="text-sm sm:text-base" /> Itens do Menu
+              </button>
+              <button 
+                className={`px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all text-sm sm:text-base ${
+                  activeTab === 'categories' 
+                    ? 'bg-white text-purple-700 shadow-md' 
+                    : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+                }`} 
+                onClick={() => setActiveTab('categories')}
+              >
+                <FaListAlt className="text-sm sm:text-base" /> Categorias
+              </button>
+            </div>
           </div>
         </div>
 
         {activeTab === 'menu' && (
           <div>
-            <div className="bg-white rounded-xl p-4 sm:p-6 mb-6 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border border-gray-200">
-              <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full sm:w-auto form-input text-sm sm:text-base">
-                  <option value="todas">Filtrar por Todas as Categorias</option>
-                  {categories.map((cat) => (<option key={cat.value} value={cat.value}>{cat.label}</option>))}
-                </select>
-                <motion.button onClick={() => handleOpenModal()} whileHover={{ scale: 1.05 }} className="w-full sm:w-auto form-button-primary text-sm sm:text-base">
-                  <FaPlus className="text-sm sm:text-base" /> Adicionar Novo Item
+            {/* Barra de controles modernizada */}
+            <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 mb-8 border border-white/20 shadow-lg">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                  <div className="relative">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Filtrar Categoria</label>
+                    <select 
+                      value={selectedCategory} 
+                      onChange={(e) => setSelectedCategory(e.target.value)} 
+                      className="w-full sm:w-64 form-input appearance-none bg-white"
+                    >
+                      <option value="todas">📋 Todas as Categorias</option>
+                      {categories.map((cat) => (<option key={cat.value} value={cat.value}>🏷️ {cat.label}</option>))}
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none mt-8">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                      <div className="text-2xl font-bold text-blue-600">{filteredItems.length}</div>
+                      <div className="text-sm text-blue-700">Itens Total</div>
+                    </div>
+                    <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+                      <div className="text-2xl font-bold text-green-600">{filteredItems.filter(item => item.isAvailable !== false).length}</div>
+                      <div className="text-sm text-green-700">Disponíveis</div>
+                    </div>
+                  </div>
+                </div>
+                <motion.button 
+                  onClick={() => handleOpenModal()} 
+                  whileHover={{ scale: 1.02 }} 
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full lg:w-auto form-button-primary px-6 py-3 text-base font-bold"
+                >
+                  <FaPlus className="text-lg mr-2" /> Adicionar Novo Item
                 </motion.button>
               </div>
             </div>
-            {loading ? <p className="text-center py-10">Carregando...</p> : error ? <p className="text-red-500 text-center py-10">{error}</p> : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-                {filteredItems.map((item) => (
-                  <motion.div key={item._id} layout className={`bg-white rounded-lg sm:rounded-xl overflow-hidden border border-gray-200 flex flex-col justify-between transition-all hover:border-purple-600 ${item.isAvailable === false ? 'opacity-50' : ''}`}>
+            {loading ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+                <span className="ml-4 text-lg text-gray-600">Carregando itens...</span>
+              </div>
+            ) : error ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+                <div className="text-red-600 text-lg font-semibold">{error}</div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                {filteredItems.length === 0 ? (
+                  <div className="col-span-full flex flex-col items-center justify-center py-16">
+                    <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-full p-8 mb-6">
+                      <FaThList className="text-4xl text-gray-400" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">Nenhum item encontrado</h3>
+                    <p className="text-gray-500 text-center mb-6 max-w-md">
+                      {selectedCategory === 'todas' 
+                        ? 'Seu cardápio está vazio. Adicione alguns itens para começar!'
+                        : `Não há itens na categoria "${categories.find(c => c.value === selectedCategory)?.label || selectedCategory}".`
+                      }
+                    </p>
+                    <motion.button 
+                      onClick={() => handleOpenModal()} 
+                      whileHover={{ scale: 1.05 }} 
+                      whileTap={{ scale: 0.95 }}
+                      className="form-button-primary px-6 py-3"
+                    >
+                      <FaPlus className="mr-2" /> Adicionar Primeiro Item
+                    </motion.button>
+                  </div>
+                ) : (
+                  filteredItems.map((item) => (
+                  <motion.div 
+                    key={item._id} 
+                    layout 
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    className={`group bg-white rounded-2xl overflow-hidden border border-gray-200 flex flex-col justify-between transition-all duration-300 hover:border-purple-300 hover:shadow-xl ${
+                      item.isAvailable === false ? 'opacity-60 grayscale' : ''
+                    }`}
+                  >
                     <div>
-                      <div className="relative h-32 sm:h-40 w-full">
-                        <Image src={item.image || '/placeholder.jpg'} alt={item.name} layout="fill" className="object-cover" />
+                      <div className="relative h-48 w-full overflow-hidden">
+                        <Image 
+                          src={item.image || '/favicon/favicon-32x32.png'} 
+                          alt={item.name} 
+                          layout="fill" 
+                          className="object-cover transition-transform duration-300 group-hover:scale-110" 
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        {item.isAvailable === false && (
+                          <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
+                            <span className="bg-white text-gray-800 px-3 py-1 rounded-full text-sm font-semibold">Indisponível</span>
+                          </div>
+                        )}
                       </div>
-                      <div className="p-3 sm:p-4">
-                        <h3 className="text-base sm:text-lg font-bold text-gray-900 truncate">{item.name}</h3>
-                        <p className="text-gray-600 text-sm mt-1">R$ {(Number(item.price) || 0).toFixed(2)}</p>
+                      <div className="p-5">
+                        <h3 className="text-lg font-bold text-gray-900 truncate group-hover:text-purple-700 transition-colors">{item.name}</h3>
+                        <p className="text-purple-600 text-xl font-bold mt-2">R$ {(Number(item.price) || 0).toFixed(2)}</p>
+                        {item.description && (
+                          <p className="text-gray-500 text-sm mt-2 line-clamp-2">{item.description}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-2">
-                      <div className="flex flex-col items-center">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" checked={item.isAvailable ?? true} onChange={(e) => handleAvailabilityChange(item, e.target.checked)} className="sr-only peer" />
-                          <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-purple-300 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
-                        </label>
-                        <span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-600' : 'text-gray-500'}`}>
-                          {item.isAvailable ?? true ? 'Disponível' : 'Indisponível'}
-                        </span>
-                      </div>
-                      <div className='flex gap-2'>
-                        <button className="bg-purple-100 text-purple-700 p-2 rounded-lg hover:bg-purple-200 transition-colors" onClick={() => handleOpenModal(item)}>
-                          <FaEdit className="text-sm sm:text-base" />
-                        </button>
-                        <button className="bg-gray-200 text-gray-600 p-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors" onClick={() => handleDeleteItem(item._id, item.name)} disabled={deletingItems.has(item._id!)}>
-                          {deletingItems.has(item._id!) ? '...' : <FaTrash className="text-sm sm:text-base" />}
-                        </button>
+                    <div className="p-5 border-t border-gray-100 bg-gradient-to-r from-gray-50 to-gray-100/50">
+                      <div className="flex justify-between items-center">
+                        <div className="flex flex-col items-center">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={item.isAvailable ?? true} 
+                              onChange={(e) => handleAvailabilityChange(item, e.target.checked)} 
+                              className="sr-only peer" 
+                            />
+                            <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-purple-300 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border after:border-gray-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-green-400 peer-checked:to-green-500 shadow-sm"></div>
+                          </label>
+                          <span className={`text-xs mt-1 font-medium ${item.isAvailable ?? true ? 'text-green-600' : 'text-gray-500'}`}>
+                            {item.isAvailable ?? true ? 'Disponível' : 'Indisponível'}
+                          </span>
+                        </div>
+                        <div className='flex gap-2'>
+                          <motion.button 
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-3 rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg" 
+                            onClick={() => handleOpenModal(item)}
+                            title="Editar item"
+                          >
+                            <FaEdit className="text-sm" />
+                          </motion.button>
+                          <motion.button 
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="bg-gradient-to-r from-red-500 to-red-600 text-white p-3 rounded-xl hover:from-red-600 hover:to-red-700 disabled:opacity-50 transition-all shadow-md hover:shadow-lg" 
+                            onClick={() => handleDeleteItem(item._id, item.name)} 
+                            disabled={deletingItems.has(item._id!)}
+                            title="Excluir item"
+                          >
+                            {deletingItems.has(item._id!) ? (
+                              <div className="animate-spin w-3 h-3 border border-white border-t-transparent rounded-full"></div>
+                            ) : (
+                              <FaTrash className="text-sm" />
+                            )}
+                          </motion.button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
-                ))}
+                  ))
+                )}
               </div>
             )}
           </div>

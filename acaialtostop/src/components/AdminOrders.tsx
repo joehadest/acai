@@ -1,6 +1,8 @@
 // src/components/AdminOrders.tsx
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FaShareAlt, FaVolumeUp, FaVolumeMute } from 'react-icons/fa'; // Ícones de volume
 // Removidos jsPDF e html2canvas (não utilizados)
 import NotificationComponent from './Notification';
@@ -85,7 +87,6 @@ export default function AdminOrders() {
     });
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const modalRef = useRef<HTMLDivElement | null>(null);
-    const [modalAnim, setModalAnim] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     const toggleGlobalSound = () => {
@@ -353,13 +354,9 @@ export default function AdminOrders() {
 
     useEffect(() => {
         if (pedidoSelecionado) {
-            setModalAnim(false);
-            const id = requestAnimationFrame(() => setModalAnim(true));
-            // removido bloqueio de scroll
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return () => {
-                cancelAnimationFrame(id);
-            };
+            // Scroll para baixo um pouco mais para melhor posicionamento do modal
+            const scrollOffset = window.innerHeight * 0.20; // 20% da altura da tela
+            window.scrollTo({ top: scrollOffset, behavior: 'smooth' });
         }
     }, [pedidoSelecionado]);
 
@@ -368,26 +365,27 @@ export default function AdminOrders() {
     if (!mounted) return null; // evita mismatch de hidratação
 
     return (
-        <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
-            <h2 className="text-xl sm:text-2xl font-bold mb-4 text-purple-600">Painel de Pedidos</h2>
+        <>
+            <div className="p-4 sm:p-6 bg-gray-100 min-h-screen">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4 text-purple-600">Painel de Pedidos</h2>
 
-            {/* Mensagem para Ativar o Som */}
-            {/* ...nenhum botão de ativação de som... */}
+                {/* Mensagem para Ativar o Som */}
+                {/* ...nenhum botão de ativação de som... */}
 
-            {mensagemCompartilhamento && (
-                <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded text-center font-semibold">
-                    {mensagemCompartilhamento}
-                </div>
-            )}
-            {notification && (
-                <NotificationComponent 
-                    message={notification} 
-                    onClose={() => setNotification(null)}
-                    type={notification.includes('✅') ? 'success' : notification.includes('🚨') ? 'warning' : 'info'}
-                    playSound={notification.includes('🚨') && globalSoundEnabled}
-                    position={notification.includes('🚨') ? 'top-center' : 'bottom-right'}
-                />
-            )}
+                {mensagemCompartilhamento && (
+                    <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-800 rounded text-center font-semibold">
+                        {mensagemCompartilhamento}
+                    </div>
+                )}
+                {notification && (
+                    <NotificationComponent 
+                        message={notification} 
+                        onClose={() => setNotification(null)}
+                        type={notification.includes('✅') ? 'success' : notification.includes('🚨') ? 'warning' : 'info'}
+                        playSound={notification.includes('🚨') && globalSoundEnabled}
+                        position={notification.includes('🚨') ? 'top-center' : 'bottom-right'}
+                    />
+                )}
             {/* Filtros */}
             <div className="mb-6 p-4 sm:p-6 bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-4">
@@ -500,174 +498,340 @@ export default function AdminOrders() {
                     </li>
                 ))}
             </ul>
-            {mensagem && (
-                <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-center font-semibold">
-                    {mensagem}
-                </div>
-            )}
+                {mensagem && (
+                    <div className="mt-4 p-3 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded text-center font-semibold">
+                        {mensagem}
+                    </div>
+                )}
+            </div>
 
-            {/* Modal de detalhes */}
-            {pedidoSelecionado && (
-                <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto bg-white/10 backdrop-blur-sm px-4 md:px-8" onClick={(e) => { if (e.target === e.currentTarget) setPedidoSelecionado(null); }}>
-                    <div
-                        ref={modalRef}
-                        className={`mt-24 sm:mt-28 bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-md md:max-w-xl lg:max-w-3xl 2xl:max-w-4xl border border-gray-200 h-auto max-h-none flex flex-col overflow-visible relative focus:outline-none transform transition-all duration-300 ease-out 
-                        ${modalAnim ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-[0.98]'}`}
-                        onClick={e => e.stopPropagation()}
-                        tabIndex={-1}
-                        role="dialog"
-                        aria-modal="true"
+            {/* Modal de detalhes melhorado - renderizado via Portal fora de todos os containers */}
+            {mounted && pedidoSelecionado && createPortal(
+                <AnimatePresence>
+                    <motion.div 
+                        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" 
+                        onClick={(e) => { if (e.target === e.currentTarget) setPedidoSelecionado(null); }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        style={{ 
+                            position: 'fixed',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            width: '100vw',
+                            height: '100vh'
+                        }}
                     >
+                        <motion.div
+                            ref={modalRef}
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] border border-gray-200 flex flex-col overflow-hidden relative focus:outline-none"
+                            onClick={e => e.stopPropagation()}
+                            tabIndex={-1}
+                            role="dialog"
+                            aria-modal="true"
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            transition={{ 
+                                type: "spring",
+                                damping: 25,
+                                stiffness: 300,
+                                duration: 0.3
+                            }}
+                        >
                         {(() => { const p = pedidoSelecionado; return (
                         <>
-                        <header className="px-4 sm:px-6 pt-4 pb-3 border-b border-gray-200 sticky top-0 bg-white z-10">
+                        {/* Header com gradiente */}
+                        <header className="bg-gradient-to-r from-purple-600 to-purple-800 text-white px-6 py-4 relative">
                             <button
-                                className="absolute top-2 right-2 text-purple-600 hover:text-purple-400 text-xl sm:text-2xl focus:outline-none no-print"
+                                className="absolute top-4 right-4 text-white/80 hover:text-white text-2xl focus:outline-none transition-colors"
                                 onClick={() => setPedidoSelecionado(null)}
-                                aria-label="Fechar modal de pedido"
-                            >&times;</button>
-                            <h3 className="text-lg md:text-2xl font-bold text-purple-600 text-center pr-8">Pedido #{p._id?.slice(-6)}</h3>
-                            <div className="mt-2 flex flex-wrap justify-center gap-4 text-xs sm:text-sm text-gray-600">
-                                <div><span className="text-gray-500">Data:</span> <span className="text-gray-900">{p.data ? formatDate(p.data) : '-'}</span></div>
-                                <div><span className="text-gray-500">Status:</span> <span className="font-semibold text-green-600">{getStatusText(p.status)}</span></div>
-                                <div><span className="text-gray-500">Entrega:</span> <span className="text-gray-900">{p.endereco?.estimatedTime || '-'}</span></div>
-                            </div>
-                        </header>
-                        <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-white sticky top-[68px] z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm">
-                            <div className="flex items-baseline gap-2">
-                                <span className="text-xs uppercase tracking-wide text-gray-500">Total</span>
-                                <span className="text-xl md:text-2xl font-bold text-purple-600">R$ {calcularTotal(p).toFixed(2)}</span>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                                {getNextStatus(p.status) && (
-                                    <button
-                                        onClick={() => updateOrderStatus(p._id, getNextStatus(p.status)!)}
-                                        disabled={updatingStatus === p._id}
-                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50"
-                                    >
-                                        {updatingStatus === p._id ? 'Atualizando...' : `Mover para ${getStatusText(getNextStatus(p.status)!)}`}
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => setPedidoSelecionado(null)}
-                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors"
-                                >
-                                    Fechar
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6">
-                            <div className="grid lg:grid-cols-2 gap-6">
-                                <section className="space-y-4">
-                                    <div className="text-xs sm:text-sm text-gray-700 space-y-1">
-                                        <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Cliente</h4>
-                                        <div><span className="text-gray-500">Nome:</span> <span className="text-gray-900">{p.cliente?.nome || '-'}</span></div>
-                                        <div><span className="text-gray-500">Telefone:</span> <span className="text-gray-900">{p.cliente?.telefone || '-'}</span></div>
+                                aria-label="Fechar modal"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                            
+                            <div className="text-center pr-10">
+                                <h3 className="text-2xl font-bold mb-2">Pedido #{p._id?.slice(-6)}</h3>
+                                <div className="flex flex-wrap justify-center gap-4 text-sm text-purple-100">
+                                    <div className="flex items-center gap-2">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        {p.data ? formatDate(p.data) : '-'}
                                     </div>
-                                    <div className="text-xs sm:text-sm text-gray-700 space-y-1">
-                                        <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Endereço</h4>
-                                        <div><span className="text-gray-500">Rua:</span> <span className="text-gray-900">{p.endereco?.address?.street || '-'}</span></div>
-                                        <div><span className="text-gray-500">Número:</span> <span className="text-gray-900">{p.endereco?.address?.number || '-'}</span></div>
-                                        {p.endereco?.address?.complement && <div><span className="text-gray-500">Compl:</span> <span className="text-gray-900">{p.endereco.address.complement}</span></div>}
-                                        <div><span className="text-gray-500">Bairro:</span> <span className="text-gray-900">{p.endereco?.address?.neighborhood || '-'}</span></div>
-                                        <div><span className="text-gray-500">Referência:</span> <span className="text-gray-900">{p.endereco?.address?.referencePoint || '-'}</span></div>
+                                    <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold
+                                        ${p.status === 'entregue' ? 'bg-green-500/20 text-green-100' : ''}
+                                        ${p.status === 'pendente' ? 'bg-yellow-500/20 text-yellow-100' : ''}
+                                        ${p.status === 'preparando' ? 'bg-blue-500/20 text-blue-100' : ''}
+                                        ${p.status === 'em_entrega' ? 'bg-purple-500/20 text-purple-100' : ''}
+                                        ${p.status === 'cancelado' ? 'bg-red-500/20 text-red-100' : ''}
+                                    `}>
+                                        {getStatusText(p.status)}
                                     </div>
-                                    {p.observacoes && (
-                                        <div className="text-xs sm:text-sm text-gray-700">
-                                            <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Observações</h4>
-                                            <div className="bg-yellow-50 border border-yellow-200 rounded p-2 text-[11px] sm:text-xs leading-snug">{p.observacoes}</div>
+                                    {p.endereco?.estimatedTime && (
+                                        <div className="flex items-center gap-2">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {p.endereco.estimatedTime}
                                         </div>
                                     )}
-                                    <div className="text-xs sm:text-sm text-gray-700 space-y-1">
-                                        <h4 className="font-semibold text-gray-500 mb-1 uppercase tracking-wide text-[11px] sm:text-xs">Pagamento</h4>
-                                        <div><span className="text-gray-500">Forma:</span> <span className="text-gray-900">{
-                                            p.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' :
-                                                p.formaPagamento?.toLowerCase() === 'cartao' ? 'Cartão' :
-                                                    'Dinheiro'
-                                        }</span></div>
-                                        {p.formaPagamento?.toLowerCase() === 'dinheiro' && (
-                                            <div><span className="text-gray-500">Troco para:</span> <span className="text-gray-900">R$ {p.troco || '-'}</span></div>
-                                        )}
-                                        <div><span className="text-gray-500">Taxa:</span> <span className="text-gray-900">R$ {p.endereco?.deliveryFee?.toFixed(2) || '0,00'}</span></div>
+                                </div>
+                            </div>
+                        </header>
+
+                        {/* Resumo do total */}
+                        <div className="bg-purple-50 border-b border-purple-100 px-6 py-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div className="flex items-baseline gap-3">
+                                    <span className="text-lg font-bold text-purple-900">Total do Pedido:</span>
+                                    <span className="text-2xl font-bold text-purple-600">R$ {calcularTotal(p).toFixed(2)}</span>
+                                </div>
+                                <div className="flex gap-2">
+                                    {getNextStatus(p.status) && (
+                                        <button
+                                            onClick={() => updateOrderStatus(p._id, getNextStatus(p.status)!)}
+                                            disabled={updatingStatus === p._id}
+                                            className="px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {updatingStatus === p._id ? (
+                                                <>
+                                                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    Atualizando...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                    {getStatusText(getNextStatus(p.status)!)}
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => handleCompartilharPedido(p)}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                                    >
+                                        <FaShareAlt className="w-4 h-4" />
+                                        Compartilhar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Conteúdo principal */}
+                        <div className="flex-1 overflow-y-auto">
+                            <div className="grid lg:grid-cols-3 gap-6 p-6">
+                                {/* Coluna 1: Cliente e Endereço */}
+                                <div className="space-y-6">
+                                    {/* Cliente */}
+                                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
+                                        <h4 className="font-bold text-blue-900 mb-3 flex items-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            Cliente
+                                        </h4>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-blue-700">Nome:</span>
+                                                <span className="text-blue-900">{p.cliente?.nome || '-'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-blue-700">Telefone:</span>
+                                                <a href={`tel:${p.cliente?.telefone}`} className="text-blue-600 hover:text-blue-800 underline">
+                                                    {p.cliente?.telefone || '-'}
+                                                </a>
+                                            </div>
+                                        </div>
                                     </div>
-                                </section>
-                                <section className="space-y-4 lg:col-span-1">
-                                    <div>
-                                        <h4 className="font-semibold text-gray-500 mb-2 text-sm border-b border-gray-200 pb-1 uppercase tracking-wide">Itens do Pedido</h4>
-                                        <ul className="space-y-3">
-                                            {p.itens.map((item, idx) => (
-                                                <li key={idx} className="text-sm text-gray-900 bg-gray-50 border border-gray-200 p-3 rounded-md shadow-xs">
-                                                    <div className="flex justify-between font-semibold">
-                                                        <span>{item.quantidade}x {item.nome}</span>
-                                                        <span>R$ {(item.preco * item.quantidade).toFixed(2)}</span>
+
+                                    {/* Endereço */}
+                                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
+                                        <h4 className="font-bold text-green-900 mb-3 flex items-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                            {p.endereco ? 'Endereço de Entrega' : 'Retirada no Local'}
+                                        </h4>
+                                        {p.endereco ? (
+                                            <div className="space-y-2 text-sm">
+                                                <div className="font-medium text-green-900">
+                                                    {p.endereco.address?.street}, {p.endereco.address?.number}
+                                                    {p.endereco.address?.complement && ` - ${p.endereco.address.complement}`}
+                                                </div>
+                                                <div className="text-green-700">
+                                                    Bairro: {p.endereco.address?.neighborhood || '-'}
+                                                </div>
+                                                {p.endereco.address?.referencePoint && (
+                                                    <div className="text-green-700">
+                                                        Referência: {p.endereco.address.referencePoint}
                                                     </div>
-                                                    <div className="text-[11px] sm:text-xs text-gray-600 mt-2 space-y-1 pl-2 border-l-2 border-purple-300">
+                                                )}
+                                                <div className="bg-green-200 rounded-lg p-2 mt-2">
+                                                    <div className="font-semibold text-green-800">
+                                                        Taxa de entrega: R$ {p.endereco.deliveryFee?.toFixed(2) || '0,00'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="text-green-700 text-sm">
+                                                Cliente irá retirar o pedido no estabelecimento
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Pagamento */}
+                                    <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-4 border border-yellow-200">
+                                        <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                            </svg>
+                                            Pagamento
+                                        </h4>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-yellow-700">Forma:</span>
+                                                <span className="px-2 py-1 bg-yellow-200 text-yellow-800 rounded-full text-xs font-medium">
+                                                    {p.formaPagamento?.toLowerCase() === 'pix' ? '📱 PIX' :
+                                                     p.formaPagamento?.toLowerCase() === 'cartao' ? '💳 Cartão' : '💵 Dinheiro'}
+                                                </span>
+                                            </div>
+                                            {p.formaPagamento?.toLowerCase() === 'dinheiro' && p.troco && (
+                                                <div className="bg-yellow-200 rounded-lg p-2">
+                                                    <span className="font-semibold text-yellow-800">Troco para: R$ {p.troco}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Observações */}
+                                    {p.observacoes && (
+                                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
+                                            <h4 className="font-bold text-orange-900 mb-3 flex items-center gap-2">
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                                </svg>
+                                                Observações
+                                            </h4>
+                                            <div className="bg-orange-200 rounded-lg p-3 text-orange-900 text-sm font-medium">
+                                                {p.observacoes}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Coluna 2 e 3: Itens do Pedido */}
+                                <div className="lg:col-span-2">
+                                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
+                                        <h4 className="font-bold text-purple-900 mb-4 flex items-center gap-2">
+                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                            </svg>
+                                            Itens do Pedido ({p.itens.length})
+                                        </h4>
+                                        
+                                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                                            {p.itens.map((item, idx) => (
+                                                <div key={idx} className="bg-white rounded-lg p-4 border border-purple-200 shadow-sm">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-purple-600 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                                                                {item.quantidade}
+                                                            </div>
+                                                            <h5 className="font-bold text-gray-900 text-lg">{item.nome}</h5>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-sm text-gray-500">R$ {item.preco.toFixed(2)} × {item.quantidade}</div>
+                                                            <div className="text-lg font-bold text-purple-600">
+                                                                R$ {(item.preco * item.quantidade).toFixed(2)}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    {/* Detalhes do item */}
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                                                         {item.size !== undefined && item.size !== '' && (
-                                                            <div>
-                                                                <strong className="text-gray-700">{item.sizesTitle || 'Tamanho'}:</strong> {Array.isArray(item.size) ? item.size.join(', ') : item.size}
+                                                            <div className="bg-gray-50 rounded-lg p-2 border">
+                                                                <span className="font-semibold text-gray-700">{item.sizesTitle || 'Tamanho'}:</span>
+                                                                <div className="text-gray-900 mt-1">
+                                                                    {Array.isArray(item.size) ? item.size.join(', ') : item.size}
+                                                                </div>
                                                             </div>
                                                         )}
-                                                        {item.flavors && item.flavors.length > 0 && <div><strong className="text-gray-700">{item.flavorsTitle || 'Sabores'}:</strong> {item.flavors.join(', ')}</div>}
-                                                        {item.border && <div><strong className="text-gray-700">{item.borderTitle || 'Borda'}:</strong> {item.border}</div>}
-                                                        {item.extras && item.extras.length > 0 && <div><strong className="text-gray-700">{item.extrasTitle || 'Extras'}:</strong> {item.extras.join(', ')}</div>}
-                                                        {item.observacao && <div><strong className="text-gray-700">Obs:</strong> {item.observacao}</div>}
+                                                        
+                                                        {item.flavors && item.flavors.length > 0 && (
+                                                            <div className="bg-gray-50 rounded-lg p-2 border">
+                                                                <span className="font-semibold text-gray-700">{item.flavorsTitle || 'Sabores'}:</span>
+                                                                <div className="text-gray-900 mt-1">{item.flavors.join(', ')}</div>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {item.border && (
+                                                            <div className="bg-gray-50 rounded-lg p-2 border">
+                                                                <span className="font-semibold text-gray-700">{item.borderTitle || 'Borda'}:</span>
+                                                                <div className="text-gray-900 mt-1">{item.border}</div>
+                                                            </div>
+                                                        )}
+                                                        
+                                                        {item.extras && item.extras.length > 0 && (
+                                                            <div className="bg-gray-50 rounded-lg p-2 border">
+                                                                <span className="font-semibold text-gray-700">{item.extrasTitle || 'Extras'}:</span>
+                                                                <div className="text-gray-900 mt-1">{item.extras.join(', ')}</div>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                </li>
+                                                    
+                                                    {item.observacao && (
+                                                        <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                                                            <span className="font-semibold text-yellow-800">Observação:</span>
+                                                            <div className="text-yellow-900 mt-1">{item.observacao}</div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                             ))}
-                                        </ul>
+                                        </div>
+                                        
+                                        {/* Resumo financeiro */}
+                                        <div className="mt-4 pt-4 border-t border-purple-200 bg-purple-100 rounded-lg p-3">
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex justify-between">
+                                                    <span className="text-purple-700">Subtotal dos itens:</span>
+                                                    <span className="font-semibold">R$ {(calcularTotal(p) - (p.endereco?.deliveryFee || 0)).toFixed(2)}</span>
+                                                </div>
+                                                {p.endereco?.deliveryFee && p.endereco.deliveryFee > 0 && (
+                                                    <div className="flex justify-between">
+                                                        <span className="text-purple-700">Taxa de entrega:</span>
+                                                        <span className="font-semibold">R$ {p.endereco.deliveryFee.toFixed(2)}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-between text-lg font-bold text-purple-900 border-t border-purple-300 pt-2">
+                                                    <span>Total:</span>
+                                                    <span>R$ {calcularTotal(p).toFixed(2)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                </section>
+                                </div>
                             </div>
                         </div>
                         </> ); })()}
-                        <style jsx global>{`
-            @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              .print-pedido, .print-pedido * {
-                visibility: visible !important;
-              }
-              .print-pedido {
-                position: absolute !important;
-                left: 0; top: 0; width: 80mm; min-width: 0; max-width: 100vw;
-                background: white !important;
-                color: #000 !important;
-                font-size: 9px !important;
-                box-shadow: none !important;
-                border: none !important;
-                margin: 0 !important;
-                padding: 2mm !important;
-              }
-              .print-pedido h3 {
-                font-size: 11px !important;
-                margin-bottom: 2mm !important;
-                text-align: center !important;
-              }
-              .print-pedido h4 {
-                font-size: 10px !important;
-                margin-bottom: 1mm !important;
-              }
-              .print-pedido div, .print-pedido span {
-                font-size: 9px !important;
-                margin: 0 !important;
-                padding: 0 !important;
-              }
-              .print-pedido button, .print-pedido .no-print {
-                display: none !important;
-              }
-              .print-pedido ul {
-                margin: 0 !important;
-                padding: 0 !important;
-              }
-              .print-pedido li {
-                margin-bottom: 1mm !important;
-              }
-            }
-          `}</style>
-                    </div>
-                </div>
+                        </motion.div>
+                    </motion.div>
+                </AnimatePresence>,
+                document.body
             )}
-        </div>
+        </>
     );
 }

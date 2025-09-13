@@ -182,7 +182,20 @@ export async function POST(request: Request) {
             }
         });
     } catch (error) {
-        console.error('POST /api/menu - Erro:', error);
+        // Tratamento específico para erros de validação do Mongoose
+        if (error && typeof error === 'object' && (error as any).name === 'ValidationError') {
+            const validation = error as any;
+            const fieldErrors: Record<string, string> = {};
+            Object.keys(validation.errors || {}).forEach((k) => {
+                fieldErrors[k] = validation.errors[k].message;
+            });
+            console.error('POST /api/menu - ValidationError:', fieldErrors);
+            return NextResponse.json(
+                { success: false, error: 'Erro de validação', fields: fieldErrors },
+                { status: 400 }
+            );
+        }
+        console.error('POST /api/menu - Erro inesperado:', error);
         return NextResponse.json(
             { success: false, error: 'Erro ao criar item do menu' },
             { status: 500 }
