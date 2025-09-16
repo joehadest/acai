@@ -72,6 +72,28 @@ export default function MenuDisplay() {
         fetchSettingsData();
     }, []);
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
+    // Guardamos refs auxiliares para otimizar a lógica de scroll
+    const sectionMetaRef = useRef<{value:string; el: HTMLElement; height: number; top: number;}[]>([]);
+    const scrollingByClickRef = useRef(false); // lock temporário após clique
+    const lastSetRef = useRef<string | null>(null); // para hysteresis
+    const rAFRef = useRef<number | null>(null);
+    const recomputeNeededRef = useRef(true);
+
+    /*
+     * ===== Seleção Automática de Categoria (Refatorada) =====
+     * Objetivos:
+     *  - Remover flicker e trocas precoces entre categorias.
+     *  - Evitar dupla lógica (IntersectionObserver + cálculo manual).
+     *  - Dar prioridade à categoria realmente dominante na área visível.
+     *  - Respeitar cliques do usuário (lock temporário para não sobrescrever durante scroll suave).
+     *  - Minimizar custo em scroll usando requestAnimationFrame (1 cálculo por frame no máximo).
+     * Estratégia:
+     *  - Mantemos metadados (top absoluto e altura) de cada seção.
+     *  - A cada scroll (throttle via rAF) calculamos um score: visibilidade normalizada - penalidade de distância da âncora (25% do viewport).
+     *  - Hysteresis: só trocamos se a nova categoria superar a anterior por margem (8%).
+     *  - Lock de ~650ms após clique: impede auto troca até terminar o scroll animado.
+     *  - Recomputamos metadados quando categorias ou itens mudam, ou em resize.
+     */
     const { isOpen, toggleOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -109,29 +131,109 @@ export default function MenuDisplay() {
         };
     }, [selectedItem, selectedPasta]);
 
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        const category = entry.target.id.replace('category-', '');
-                        setSelectedCategory(category);
-                    }
-                });
-            },
-            {
-                rootMargin: '-20% 0px -80% 0px',
-                threshold: 0
-            }
-        );
+    // Recalcula metadados das seções (top/height) — chamado quando categorias ou itens mudam
+    const recomputeSectionMeta = () => {
+        sectionMetaRef.current = categories.map(cat => {
+            const el = document.getElementById(`category-${cat.value}`) as HTMLElement | null;
+            if (!el) return null;
+            const rect = el.getBoundingClientRect();
+            const top = rect.top + window.scrollY; // posição absoluta
+            return { value: cat.value, el, height: el.offsetHeight, top };
+        }).filter(Boolean) as {value:string; el: HTMLElement; height: number; top: number;}[];
+        recomputeNeededRef.current = false;
+    };
 
-        const categoryElements = categories.map(cat => document.getElementById(`category-${cat.value}`)).filter(Boolean);
-        categoryElements.forEach(el => observer.observe(el!));
+    // Marca necessidade de recomputar quando categorias mudam
+    useEffect(() => {
+        recomputeNeededRef.current = true;
+    }, [categories, menuItems]);
+
+    // Handler principal de scroll com requestAnimationFrame e heurística
+    useEffect(() => {
+        if (categories.length === 0) return;
+
+        const anchorRatio = 0.25; // linha de referência a 25% do viewport
+        const hysteresisAdvantage = 0.08; // nova categoria precisa de 8% de score melhor
+        const lockDuration = 650; // ms de bloqueio após clique
+        let lastCalc = 0;
+
+        const calcActive = () => {
+            rAFRef.current = null;
+            if (scrollingByClickRef.current) return; // lock ativo — não mudar
+            if (recomputeNeededRef.current) recomputeSectionMeta();
+            if (sectionMetaRef.current.length === 0) return;
+
+            const viewportTop = window.scrollY;
+            const viewportH = window.innerHeight;
+            const anchorY = viewportTop + viewportH * anchorRatio;
+
+            let bestValue = sectionMetaRef.current[0].value;
+            let bestScore = -Infinity;
+
+            sectionMetaRef.current.forEach(meta => {
+                const { top, height } = meta;
+                const bottom = top + height;
+                // área visível aproximada
+                const visible = Math.max(0, Math.min(bottom, viewportTop + viewportH) - Math.max(top, viewportTop));
+                if (visible <= 0) return;
+                // distância do centro da seção à linha âncora
+                const center = top + height / 2;
+                const dist = Math.abs(center - anchorY);
+                const normVis = visible / height; // 0..1
+                const score = normVis - dist / 2000; // penaliza distância
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestValue = meta.value;
+                }
+            });
+
+            // Hysteresis: só troca se ganho for suficiente
+            if (lastSetRef.current && lastSetRef.current !== bestValue) {
+                // encontrar score anterior (aproxima recalculando) — simples
+                const prevMeta = sectionMetaRef.current.find(m => m.value === lastSetRef.current);
+                if (prevMeta) {
+                    const viewportTop2 = viewportTop; // reutiliza
+                    const viewportH2 = viewportH;
+                    const anchorY2 = anchorY;
+                    const top = prevMeta.top; const height = prevMeta.height; const bottom = top + height;
+                    const visible = Math.max(0, Math.min(bottom, viewportTop2 + viewportH2) - Math.max(top, viewportTop2));
+                    const center = top + height / 2;
+                    const dist = Math.abs(center - anchorY2);
+                    const prevScore = (visible / height) - dist / 2000;
+                    if (bestScore < prevScore + hysteresisAdvantage) {
+                        return; // não muda ainda
+                    }
+                }
+            }
+
+            if (bestValue !== lastSetRef.current) {
+                lastSetRef.current = bestValue;
+                setSelectedCategory(bestValue);
+            }
+        };
+
+        const onScroll = () => {
+            // throttle leve por frame
+            if (rAFRef.current) return;
+            rAFRef.current = requestAnimationFrame(calcActive);
+        };
+
+        // Recalcula inicialmente após pequeno delay para layout estabilizar
+        const initTimeout = setTimeout(() => {
+            recomputeSectionMeta();
+            calcActive();
+        }, 200);
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', () => { recomputeNeededRef.current = true; onScroll(); }, { passive: true });
 
         return () => {
-            categoryElements.forEach(el => observer.unobserve(el!));
+            window.removeEventListener('scroll', onScroll);
+            // não removemos listener inline de resize (anônimo) — alternativa: extrair função se necessário
+            if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
+            clearTimeout(initTimeout);
         };
-    }, [categories]);
+    }, [categories, menuItems]);
 
     // Função para recarregar dados do menu
     const refreshMenuData = async () => {
@@ -218,8 +320,10 @@ export default function MenuDisplay() {
         return () => clearInterval(interval);
     }, []);
 
+    // Alinha pill da categoria somente quando mudança veio de clique manual
     useEffect(() => {
         if (!selectedCategory || !categoriesContainerRef.current) return;
+        if (!scrollingByClickRef.current) return; // evita interferir no scroll manual para cima
         const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`);
         if (btn && typeof (btn as HTMLElement).scrollIntoView === 'function') {
             (btn as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
@@ -256,80 +360,39 @@ export default function MenuDisplay() {
 
     const handleCategoryClick = (category: string | null) => {
         setSelectedCategory(category);
+        lastSetRef.current = category;
+        const releaseLock = (delay = 450) => setTimeout(() => { scrollingByClickRef.current = false; }, delay);
         if (category) {
             const element = document.getElementById(`category-${category}`);
             if (element) {
-                const offset = 140; 
-                const elementPosition = element.offsetTop - offset;
-                window.scrollTo({
-                    top: Math.max(0, elementPosition),
-                    behavior: 'smooth'
-                });
+                const offset = 140;
+                const target = Math.max(0, element.offsetTop - offset);
+                const startY = window.scrollY;
+                scrollingByClickRef.current = true;
+                window.scrollTo({ top: target, behavior: 'smooth' });
+                // Listener para cancelar lock se usuário começar a rolar manualmente na direção oposta
+                const onWheel = (e: WheelEvent) => {
+                    const goingUp = e.deltaY < 0;
+                    const wantDown = target > startY;
+                    const wantUp = target < startY;
+                    if ((goingUp && wantDown) || (!goingUp && wantUp)) {
+                        scrollingByClickRef.current = false;
+                        window.removeEventListener('wheel', onWheel);
+                    }
+                };
+                window.addEventListener('wheel', onWheel, { passive: true });
+                releaseLock();
             }
         } else {
+            scrollingByClickRef.current = true;
             window.scrollTo({ top: 0, behavior: 'smooth' });
+            releaseLock();
         }
     };
     
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
-    useEffect(() => {
-        if (categories.length === 0) return;
-
-        let scrollTimeout: NodeJS.Timeout;
-
-        const checkVisibleCategory = () => {
-            const categoryElements = categories.map(cat => ({
-                element: document.getElementById(`category-${cat.value}`),
-                value: cat.value
-            })).filter(item => item.element);
-
-            if (categoryElements.length === 0) return;
-
-            let bestCategory = categories[0]?.value || '';
-            let bestVisibility = 0;
-            const viewportCenter = window.innerHeight / 2;
-
-            categoryElements.forEach(({ element, value }) => {
-                if (element) {
-                    const rect = element.getBoundingClientRect();
-                    const elementCenter = rect.top + rect.height / 2;
-                    const distanceFromCenter = Math.abs(elementCenter - viewportCenter);
-
-                    const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
-                    const visibility = Math.max(0, visibleHeight / element.offsetHeight);
-
-                    if (visibility > 0.3) {
-                        const score = visibility / (1 + distanceFromCenter / 100);
-                        if (score > bestVisibility) {
-                            bestVisibility = score;
-                            bestCategory = value;
-                        }
-                    }
-                }
-            });
-
-            if (bestVisibility > 0 && bestCategory !== selectedCategory) {
-                setSelectedCategory(bestCategory);
-            }
-        };
-
-        const handleScroll = () => {
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(() => {
-                checkVisibleCategory();
-            }, 50);
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-
-        setTimeout(checkVisibleCategory, 200);
-
-        return () => {
-            window.removeEventListener('scroll', handleScroll);
-            clearTimeout(scrollTimeout);
-        };
-    }, [categories, selectedCategory]);
+    // Remove antiga lógica duplicada de detecção (substituída pelo rAF unificado acima)
 
     useEffect(() => {
         async function fetchDeliveryFees() {
@@ -384,92 +447,99 @@ export default function MenuDisplay() {
 
     if (loading) {
         return (
-            <div className="min-h-[60vh] flex items-center justify-center bg-transparent p-4">
-                <div className="text-center bg-white/80 backdrop-blur-md rounded-3xl p-8 shadow-2xl border border-purple-100/50">
-                    <div className="animate-spin rounded-full h-20 w-20 border-4 border-purple-200 border-t-purple-600 mx-auto mb-6"></div>
-                    <p className="text-gray-800 text-xl font-semibold">Carregando cardápio...</p>
-                    <p className="text-gray-600 text-sm mt-2">Preparando as delícias para você</p>
+            <div className="min-h-[60vh] flex items-center justify-center bg-gray-100 p-4">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                    <p className="text-gray-800 text-lg">Carregando cardápio...</p>
                 </div>
             </div>
         );
     }
 
     return (
-    <div className="min-h-screen bg-transparent">
+        <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-gray-100">
             <div className="sticky top-0 z-40">
-              <div className="bg-white/80 backdrop-blur-md py-3 mb-6 border border-purple-100/50 shadow-lg rounded-2xl mx-2"> 
-                <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
-                  <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-400 to-transparent" />
-                    <motion.div
-                        ref={categoriesContainerRef}
-                            className="flex gap-2 overflow-x-auto pb-2 no-scrollbar"
-                        style={{ WebkitOverflowScrolling: 'touch', scrollSnapType: 'x mandatory' }}
-                    >
-                        {categories.map(category => (
-                            <motion.button
-                                key={category.value}
-                                data-category={category.value}
-                                onClick={() => handleCategoryClick(category.value)}
-                                className={`relative px-4 py-2 rounded-md whitespace-nowrap flex-shrink-0 text-xs font-semibold tracking-wide transition-colors ${selectedCategory === category.value
-                                    ? 'text-purple-700 bg-purple-50'
-                                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-                                    }`}
-                            >
-                                <span className="uppercase">{category.label}</span>
-                                {selectedCategory === category.value && (
-                                  <motion.span layoutId="catUnderline" className="absolute left-2 right-2 -bottom-1 h-[3px] rounded-full bg-gradient-to-r from-purple-500 via-purple-600 to-purple-500" />
-                                )}
-                            </motion.button>
-                        ))}
-                    </motion.div>
-                </div>
-                </div>
+                            <div className="bg-white/90 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm"> 
+                                <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
+                                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300/70 to-transparent" />
+                                    <motion.div
+                                        ref={categoriesContainerRef}
+                                        className="flex gap-2 overflow-x-auto pb-2 no-scrollbar"
+                                        style={{ WebkitOverflowScrolling: 'touch' }}
+                                    >
+                                        {categories.map(category => {
+                                            const active = selectedCategory === category.value;
+                                            return (
+                                                <motion.button
+                                                    key={category.value}
+                                                    data-category={category.value}
+                                                    onClick={() => handleCategoryClick(category.value)}
+                                                    whileTap={{ scale: 0.94 }}
+                                                    className={`group relative flex-shrink-0 whitespace-nowrap text-[11px] sm:text-xs font-semibold tracking-wide px-4 py-2 rounded-full transition-colors border ${
+                                                        active
+                                                            ? 'bg-white text-purple-700 border-purple-300 shadow-sm'
+                                                            : 'bg-white/40 border-transparent text-gray-600 hover:text-gray-800 hover:bg-white'
+                                                    }`}
+                                                >
+                                                    <span className="uppercase tracking-wider">{category.label}</span>
+                                                    {active && (
+                                                        <motion.span
+                                                            layoutId="catGlow"
+                                                            className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-purple-500/20 via-purple-500/10 to-purple-500/20 blur-sm"
+                                                        />
+                                                    )}
+                                                </motion.button>
+                                            );
+                                        })}
+                                    </motion.div>
+                                </div>
+                            </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-4 pb-24">
                 <div className="space-y-12">
                     {categories.map(category => (
-                        <div key={category.value} id={`category-${category.value}`} className="space-y-6">
-                            <div className="text-center">
-                                <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-700 to-purple-500 bg-clip-text text-transparent capitalize mb-2">{category.label}</h2>
-                                <div className="w-24 h-1 bg-gradient-to-r from-purple-500 to-purple-600 rounded-full mx-auto"></div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                                <div key={category.value} id={`category-${category.value}`} className="space-y-5 scroll-mt-36">
+                                                        <div className="flex items-center gap-3">
+                                                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 capitalize tracking-tight relative">
+                                                                <span className="bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">{category.label}</span>
+                                                            </h2>
+                                                            <div className="flex-1 h-px bg-gradient-to-r from-purple-300/40 via-gray-200 to-transparent" />
+                                                        </div>
+                                                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
                                 {menuItems
                                     .filter(item => item.category === category.value)
                                     .map((item) => (
                                         <motion.div
                                             key={item._id}
-                                            className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 border border-purple-100/50 group"
-                                            whileHover={{ y: -5 }}
+                                            whileHover={{ y: -4 }}
+                                            className="group bg-white rounded-lg sm:rounded-xl shadow-sm overflow-hidden border border-gray-200 hover:border-purple-200 transition-all duration-300 hover:shadow-md"
                                         >
-                                            <div className="relative h-56 overflow-hidden">
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent z-10"></div>
+                                            <div className="relative h-36 sm:h-48 overflow-hidden">
                                                 <Image
                                                     src={item.image || '/placeholder.jpg'}
                                                     alt={item.name}
                                                     fill
-                                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                                    className="object-cover group-hover:scale-110 transition-transform duration-300"
+                                                    sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
+                                                    className="object-cover transition-transform duration-500 group-hover:scale-105"
                                                 />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[11px] sm:text-xs font-semibold bg-white/85 backdrop-blur-sm text-purple-700 border border-purple-200 shadow-sm">
+                                                    R$ {(Number(item.price) || 0).toFixed(2)}
+                                                </div>
                                             </div>
-                                            <div className="p-6 relative">
-                                                <div className="absolute -top-4 left-6 right-6 h-8 bg-gradient-to-b from-white/80 to-transparent rounded-t-2xl"></div>
-                                                <h3 className="text-2xl font-bold text-gray-800 mb-3 leading-tight">{item.name}</h3>
-                                                <p className="text-gray-600 mb-4 h-12 overflow-hidden text-sm leading-relaxed">{item.description}</p>
-                                                <div className="flex justify-between items-center pt-2">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-xs text-gray-500 uppercase tracking-wide mb-1">Preço</span>
-                                                        <span className="text-purple-600 font-bold text-2xl">R$ {(Number(item.price) || 0).toFixed(2)}</span>
-                                                    </div>
-                                                    <motion.button
+                                            <div className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3">
+                                                <h3 className="text-sm sm:text-lg font-semibold text-gray-900 leading-snug line-clamp-1 group-hover:text-purple-700 transition-colors">{item.name}</h3>
+                                                {item.description && (
+                                                    <p className="text-gray-600/90 text-[11px] sm:text-sm leading-relaxed line-clamp-2 min-h-[2.2rem] sm:min-h-[2.5rem]">{item.description}</p>
+                                                )}
+                                                <div className="mt-auto flex items-center justify-end pt-1 sm:pt-2">
+                                                    <button
                                                         onClick={() => setSelectedItem(item)}
-                                                        className="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800 shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
-                                                        whileHover={{ scale: 1.05 }}
-                                                        whileTap={{ scale: 0.95 }}
+                                                        className="text-[11px] sm:text-xs px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-md bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium shadow hover:from-purple-700 hover:to-purple-800 active:scale-95 transition-all"
                                                     >
                                                         Adicionar
-                                                    </motion.button>
+                                                    </button>
                                                 </div>
                                             </div>
                                         </motion.div>
@@ -508,29 +578,17 @@ export default function MenuDisplay() {
                 <AnimatePresence>
                     {cartItems.length > 0 && !isCartOpen && (
                         <motion.button
-                            initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 20 }}
                             onClick={() => setIsCartOpen(true)}
-                            className="fixed bottom-6 right-6 bg-gradient-to-r from-purple-600 to-purple-700 text-white p-4 rounded-2xl shadow-2xl hover:from-purple-700 hover:to-purple-800 transition-all duration-300 z-50 border border-purple-500/30"
-                            whileHover={{ scale: 1.05, y: -2 }}
-                            whileTap={{ scale: 0.95 }}
+                            className="fixed bottom-4 right-4 bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-colors duration-300 z-50"
                         >
-                            <div className="flex items-center backdrop-blur-sm">
-                                <div className="relative mr-3">
-                                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                    <div className="absolute -top-2 -right-2 bg-yellow-400 text-purple-800 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center animate-pulse">
-                                        {cartItems.reduce((total, item) => total + item.quantity, 0)}
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-start">
-                                    <span className="font-bold text-sm">Ver Carrinho</span>
-                                    <span className="text-xs text-purple-100">
-                                        R$ {cartItems.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2)}
-                                    </span>
-                                </div>
+                            <div className="flex items-center">
+                                <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span className="font-semibold">{cartItems.reduce((total, item) => total + item.quantity, 0)}</span>
                             </div>
                         </motion.button>
                     )}

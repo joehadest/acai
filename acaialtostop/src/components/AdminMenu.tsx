@@ -105,8 +105,16 @@ const ItemModal = ({
   }, []); // Executa apenas uma vez na montagem e desmontagem do modal
 
   useEffect(() => {
+    // Evita reprocessar se já temos os dados corretos
+    if (formData && formData._id === item._id && formData.category === item.category) {
+      return;
+    }
+    
+    // Só define a categoria como fallback se o item não tiver categoria
+    const categoryToUse = item.category || (categories.length > 0 ? categories[0].value : '');
+    
     const initialFormData = {
-      name: '', description: '', price: 0, category: categories[0]?.value || '',
+      name: '', description: '', price: 0, category: categoryToUse,
       image: '', destaque: false, ingredients: [], sizes: {}, flavorOptions: {}, borderOptions: {}, extraOptions: {},
       // Campos de título com valores padrão
       sizesTitle: 'Tamanhos',
@@ -116,8 +124,10 @@ const ItemModal = ({
       maxSizes: 1,
       maxFlavors: 1,
       maxExtras: 1,
-      ...item,
+      isAvailable: true, // Garante que novos itens sejam disponíveis por padrão
+      ...item, // O spread do item vem por último para preservar todas as propriedades
     };
+    
     setFormData(initialFormData);
 
     if (initialFormData.sizes) {
@@ -131,7 +141,14 @@ const ItemModal = ({
     } else {
         setFlavorsArray([]);
     }
-  }, [item, categories]);
+  }, [item]); // Removido 'categories' das dependências
+
+  // useEffect separado para atualizar categoria apenas se ela estiver vazia e categories carregarem
+  useEffect(() => {
+    if (!formData.category && categories.length > 0 && !item.category) {
+      setFormData(prev => ({ ...prev, category: categories[0].value }));
+    }
+  }, [categories, formData.category, item.category]);
 
   // Função para copiar os sabores
   const handleCopyFlavors = (flavorsToCopy: { [key: string]: number }) => {
@@ -364,6 +381,75 @@ const ItemModal = ({
   const allowHalfAndHalfForCategory = !!selectedCategoryObj?.allowHalfAndHalf; 
 
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  // Listener para teclado (visualViewport) em mobile
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const vv = (window as any).visualViewport as VisualViewport | undefined;
+    if (!vv) return;
+    
+    const handleResize = () => {
+      const innerH = window.innerHeight;
+      const vvh = vv.height; // altura visível descontando teclado
+      const keyboardH = innerH - vvh;
+      
+      setViewportHeight(vvh);
+      setKeyboardHeight(keyboardH > 80 ? keyboardH : 0); // considera teclado se > 80px
+      
+      // Se teclado abriu, aguardar um pouco e rolar para o elemento focado
+      if (keyboardH > 100) {
+        setTimeout(() => {
+          const focusedEl = document.activeElement as HTMLElement;
+          if (focusedEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(focusedEl.tagName)) {
+            focusedEl.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            });
+          }
+        }, 150);
+      }
+    };
+    
+    handleResize();
+    vv.addEventListener('resize', handleResize);
+    vv.addEventListener('scroll', handleResize); // alguns navegadores emulam
+    return () => {
+      vv.removeEventListener('resize', handleResize);
+      vv.removeEventListener('scroll', handleResize);
+    };
+  }, []);
+
+  // Garantir que inputs focados sejam visíveis acima do teclado
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const handler = (e: Event) => {
+      const target = e.target as HTMLElement;
+      if (!target) return;
+      if (['INPUT','TEXTAREA','SELECT'].includes(target.tagName)) {
+        setTimeout(() => {
+          // scrollIntoView suave centralizado
+            try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+        }, 80);
+      }
+    };
+    container.addEventListener('focusin', handler);
+    return () => container.removeEventListener('focusin', handler);
+  }, []);
+
+  // Adicionar padding inferior quando teclado aberto para não esconder botão / campos finais
+  const dynamicInnerStyle: React.CSSProperties = {};
+  if (isMobile && viewportHeight) {
+    dynamicInnerStyle.maxHeight = Math.min(viewportHeight - 16, window.innerHeight * 0.95); // limita altura
+    if (keyboardHeight > 0) {
+      dynamicInnerStyle.marginBottom = Math.min(keyboardHeight * 0.1, 20); // pequeno espaço do teclado
+    }
+  }
 
   // Scroll automático para o modal ao abrir (principalmente em telas que já estão scrolladas)
   useEffect(() => {
@@ -383,15 +469,32 @@ const ItemModal = ({
     <>
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-  className="fixed inset-0 z-50 flex items-start justify-center p-2 xs:p-3 sm:p-4 md:p-8 bg-black/40 md:bg-black/30 backdrop-blur-sm overflow-y-auto"
+        ref={scrollContainerRef}
+        className="fixed inset-0 z-50 flex items-start justify-center p-1 xs:p-2 sm:p-4 md:p-8 bg-black/40 md:bg-black/30 backdrop-blur-sm overflow-y-auto overscroll-contain"
+        style={isMobile && viewportHeight ? { 
+          height: viewportHeight, 
+          WebkitOverflowScrolling: 'touch',
+          paddingTop: keyboardHeight > 0 ? '0.25rem' : '0.5rem', // menos padding quando teclado aberto
+          paddingBottom: keyboardHeight > 0 ? '0.25rem' : '1rem'
+        } : undefined}
         onClick={onClose}
       >
         <motion.div
           initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }}
-          className="w-full max-w-6xl bg-white/95 backdrop-blur border border-purple-200 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col max-h-[96vh] md:max-h-[92vh] min-h-[92vh] md:min-h-0 sm:overflow-hidden"
+          className="w-full max-w-6xl bg-white/95 backdrop-blur border border-purple-200 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col sm:overflow-hidden"
+          style={{
+            ...dynamicInnerStyle,
+            // Em mobile, garantir que ocupe toda altura disponível quando teclado aberto
+            minHeight: isMobile && keyboardHeight > 0 ? 'auto' : '60vh'
+          }}
           ref={modalRef}
           onClick={(e) => e.stopPropagation()}
         >
+          {keyboardHeight > 0 && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-full flex justify-center pb-2">
+              <div className="px-3 py-1 rounded-full bg-purple-600/80 text-white text-[11px] font-medium shadow">Teclado aberto</div>
+            </div>
+          )}
           {/* Header Sticky */}
           <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-3 sm:py-4 border-b bg-white/90 backdrop-blur rounded-t-2xl">
             <div className="space-y-1 w-full">
@@ -425,7 +528,15 @@ const ItemModal = ({
           </div>
 
           {/* Corpo Scroll */}
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-6 sm:space-y-8">
+          <div 
+            className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-6 sm:space-y-8"
+            style={{
+              // Em mobile com teclado aberto, garantir scroll suave
+              WebkitOverflowScrolling: 'touch',
+              // Adicionar padding extra na parte inferior quando teclado está aberto
+              paddingBottom: isMobile && keyboardHeight > 0 ? '6rem' : undefined
+            }}
+          >
             {/* Seção Básica */}
             <AnimatePresence mode="wait">
               <motion.div
@@ -444,7 +555,13 @@ const ItemModal = ({
                       </div>
                       <div>
                         <label className="form-label">Categoria *</label>
-                        <select name="category" value={formData.category} onChange={handleChange} className="form-input" required>
+                        <select 
+                          name="category" 
+                          value={formData.category} 
+                          onChange={handleChange} 
+                          className="form-input" 
+                          required
+                        >
                           {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                         </select>
                       </div>
@@ -646,6 +763,8 @@ const ItemModal = ({
           </div>
 
           {/* Footer removido conforme solicitação (botões já existem no topo) */}
+          {/* Espaço extra no fim quando teclado aberto */}
+          {keyboardHeight > 0 && <div style={{ height: keyboardHeight + 24 }} className="md:hidden shrink-0" />}
         </motion.div>
       </motion.div>
       <AnimatePresence>
@@ -1047,12 +1166,15 @@ export default function AdminMenu() {
     }
   };
 
-  const handleOpenModal = (item: Partial<MenuItem> | null = null) => { setEditingItem(item || {}); setIsModalOpen(true); };
+  const handleOpenModal = (item: Partial<MenuItem> | null = null) => { 
+    setEditingItem(item || {}); 
+    setIsModalOpen(true); 
+  };
   const handleCloseModal = () => { setIsModalOpen(false); setEditingItem(null); };
 
   const handleSaveItem = async (itemData: Partial<MenuItem>) => {
     const method = itemData._id ? 'PUT' : 'POST';
-    const url = itemData._id ? `/api/menu/${itemData._id}` : '/api/menu';
+    const url = '/api/menu'; // Sempre usar a rota base
     try {
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemData) });
       if (res.ok) { handleCloseModal(); fetchData(); }
@@ -1064,7 +1186,7 @@ export default function AdminMenu() {
     if (!id || !name || !confirm(`Excluir "${name}"?`)) return;
     setDeletingItems(prev => new Set(prev).add(id));
     try {
-      const res = await fetch(`/api/menu/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/menu?id=${id}`, { method: 'DELETE' });
       if (res.ok) { setMenuItems(prev => prev.filter(item => item._id !== id)); }
       else { alert('Erro ao excluir.'); }
     } catch (err) {
@@ -1079,12 +1201,22 @@ export default function AdminMenu() {
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen text-gray-900 p-4 sm:p-6 lg:p-8">
       <style jsx global>{`
-        .form-input { @apply w-full mt-1 p-2 bg-white border border-gray-200 rounded-lg text-gray-900 focus:ring-purple-500 focus:border-purple-500 transition-all shadow-sm; }
-        .form-label { @apply block text-sm font-medium text-gray-700; }
+        .form-input { @apply w-full mt-1 p-3 bg-white border border-gray-200 rounded-lg text-gray-900 focus:ring-purple-500 focus:border-purple-500 transition-all shadow-sm text-base; }
+        .form-label { @apply block text-sm font-medium text-gray-700 mb-1; }
         .form-checkbox { @apply h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500; }
-        .form-button-primary { @apply px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all flex items-center justify-center font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5; }
-        .form-button-secondary { @apply px-4 py-2 bg-white text-gray-800 rounded-lg hover:bg-gray-50 transition-all border border-gray-200 shadow-sm hover:shadow-md; }
-        .form-button-danger { @apply p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all border border-red-200; }
+        .form-button-primary { @apply px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all flex items-center justify-center font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5; }
+        .form-button-secondary { @apply px-4 py-3 bg-white text-gray-800 rounded-lg hover:bg-gray-50 transition-all border border-gray-200 shadow-sm hover:shadow-md; }
+        .form-button-danger { @apply p-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all border border-red-200; }
+        
+        /* Melhorias específicas para mobile */
+        @media (max-width: 768px) {
+          .form-input { 
+            @apply text-base; 
+            font-size: 16px !important; /* Evita zoom no iOS */
+          }
+          .form-input:focus { @apply ring-2; } /* Ring mais visível em mobile */
+          textarea.form-input { @apply min-h-32; } /* Altura mínima melhor em mobile */
+        }
       `}</style>
       <div className="max-w-7xl mx-auto">
         {/* Header aprimorado com gradiente */}
