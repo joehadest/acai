@@ -4,791 +4,11 @@
 
 import React, { useState, useEffect, FormEvent, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+// Modal antigo removido definitivamente
+import { useRouter } from 'next/navigation';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
-import { FaPlus, FaEdit, FaTrash, FaSave, FaTimes, FaListAlt, FaThList, FaArrowUp, FaArrowDown, FaCopy } from 'react-icons/fa';
-
-// --- COMPONENTE: MODAL DE CÓPIA DE EXTRAS ---
-const CopyExtrasModal = ({
-  menuItems,
-  currentItemId,
-  onCopy,
-  onClose,
-}: {
-  menuItems: Partial<MenuItem>[];
-  currentItemId?: string;
-  onCopy: (extras: { [key: string]: number }) => void;
-  onClose: () => void;
-}) => {
-  const itemsWithExtras = menuItems.filter(
-    (item) => item._id !== currentItemId && item.extraOptions && Object.keys(item.extraOptions).length > 0
-  );
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, y: 20 }}
-        animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.9, y: 20 }}
-        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[70vh] flex flex-col text-gray-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-xl font-bold mb-4 text-purple-600">Copiar Extras de Outro Item</h3>
-        <div className="overflow-y-auto space-y-2 flex-1">
-          {itemsWithExtras.length > 0 ? (
-            itemsWithExtras.map((item) => (
-              <button
-                key={item._id}
-                onClick={() => onCopy(item.extraOptions || {})}
-                className="w-full text-left p-3 bg-gray-50 hover:bg-purple-100 rounded-md transition-colors border border-gray-200"
-              >
-                <p className="font-semibold">{item.name}</p>
-                <p className="text-xs text-gray-500">
-                  {Object.keys(item.extraOptions || {}).join(', ')}
-                </p>
-              </button>
-            ))
-          ) : (
-            <p className="text-center text-gray-500 py-4">Nenhum outro item com extras encontrado.</p>
-          )}
-        </div>
-        <button onClick={onClose} className="form-button-secondary mt-4">
-          Fechar
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-};
-
-
-// --- COMPONENT: ITEM MODAL (COMPLETE) ---
-const ItemModal = ({
-  item,
-  onClose,
-  onSave,
-  categories,
-  menuItems, // Adicionado para a cópia de extras
-}: {
-  item: Partial<MenuItem>;
-  onClose: () => void;
-  onSave: (itemData: Partial<MenuItem>) => void;
-  categories: { value: string; label: string; allowHalfAndHalf?: boolean }[];
-  menuItems: Partial<MenuItem>[]; // Adicionado para a cópia de extras
-}) => {
-  const [formData, setFormData] = useState<Partial<MenuItem>>(item);
-  const [sizesArray, setSizesArray] = useState<{key: string, value: number}[]>([]);
-  const [flavorsArray, setFlavorsArray] = useState<{key: string, value: number}[]>([]);
-  const [isCopyExtrasModalOpen, setIsCopyExtrasModalOpen] = useState(false);
-  const [isCopyFlavorsModalOpen, setIsCopyFlavorsModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic');
-
-  const tabs = [
-    { id: 'basic', label: 'Informações Básicas' },
-    { id: 'ingredients', label: 'Componentes' },
-    { id: 'sizes_flavors', label: 'Variações' },
-    { id: 'borders_extras', label: 'Adicionais' },
-  ];
-
-  useEffect(() => {
-    // Bloqueia a rolagem do body quando o modal está aberto
-    document.body.style.overflow = 'hidden';
-    // Restaura a rolagem quando o modal é fechado
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, []); // Executa apenas uma vez na montagem e desmontagem do modal
-
-  useEffect(() => {
-    // Evita reprocessar se já temos os dados corretos
-    if (formData && formData._id === item._id && formData.category === item.category) {
-      return;
-    }
-    
-    // Só define a categoria como fallback se o item não tiver categoria
-    const categoryToUse = item.category || (categories.length > 0 ? categories[0].value : '');
-    
-    const initialFormData = {
-      name: '', description: '', price: 0, category: categoryToUse,
-      image: '', destaque: false, ingredients: [], sizes: {}, flavorOptions: {}, borderOptions: {}, extraOptions: {},
-      // Campos de título com valores padrão
-      sizesTitle: 'Tamanhos',
-      flavorsTitle: 'Sabores',
-      extrasTitle: 'Adicionais',
-      borderTitle: 'Bordas',
-      maxSizes: 1,
-      maxFlavors: 1,
-      maxExtras: 1,
-      isAvailable: true, // Garante que novos itens sejam disponíveis por padrão
-      ...item, // O spread do item vem por último para preservar todas as propriedades
-    };
-    
-    setFormData(initialFormData);
-
-    if (initialFormData.sizes) {
-      setSizesArray(Object.entries(initialFormData.sizes).map(([key, value]) => ({ key, value })));
-    } else {
-      setSizesArray([]);
-    }
-
-    if (initialFormData.flavorOptions) {
-        setFlavorsArray(Object.entries(initialFormData.flavorOptions).map(([key, value]) => ({ key, value })));
-    } else {
-        setFlavorsArray([]);
-    }
-  }, [item]); // Removido 'categories' das dependências
-
-  // useEffect separado para atualizar categoria apenas se ela estiver vazia e categories carregarem
-  useEffect(() => {
-    if (!formData.category && categories.length > 0 && !item.category) {
-      setFormData(prev => ({ ...prev, category: categories[0].value }));
-    }
-  }, [categories, formData.category, item.category]);
-
-  // Função para copiar os sabores
-  const handleCopyFlavors = (flavorsToCopy: { [key: string]: number }) => {
-    setFlavorsArray(Object.entries(flavorsToCopy).map(([key, value]) => ({ key, value })));
-    setFormData((prev) => ({
-      ...prev,
-      flavorOptions: { ...flavorsToCopy },
-    }));
-    setIsCopyFlavorsModalOpen(false);
-  };
-
-  // Modal de copiar sabores
-  const CopyFlavorsModal = ({
-    menuItems,
-    currentItemId,
-    onCopy,
-    onClose,
-  }: {
-    menuItems: Partial<MenuItem>[];
-    currentItemId?: string;
-    onCopy: (flavors: { [key: string]: number }) => void;
-    onClose: () => void;
-  }) => {
-    const itemsWithFlavors = menuItems.filter(
-      (item) => item._id !== currentItemId && item.flavorOptions && Object.keys(item.flavorOptions).length > 0
-    );
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black bg-opacity-60 z-[60] flex items-center justify-center p-4"
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ scale: 0.9, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.9, y: 20 }}
-          className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[70vh] flex flex-col text-gray-800"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <h3 className="text-xl font-bold mb-4 text-purple-600">Copiar Sabores de Outro Item</h3>
-          <div className="overflow-y-auto space-y-2 flex-1">
-            {itemsWithFlavors.length > 0 ? (
-              itemsWithFlavors.map((item) => (
-                <button
-                  key={item._id}
-                  onClick={() => onCopy(item.flavorOptions || {})}
-                  className="w-full text-left p-3 bg-gray-50 hover:bg-purple-100 rounded-md transition-colors border border-gray-200"
-                >
-                  <p className="font-semibold">{item.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {Object.keys(item.flavorOptions || {}).join(', ')}
-                  </p>
-                </button>
-              ))
-            ) : (
-              <p className="text-center text-gray-500 py-4">Nenhum outro item com sabores encontrado.</p>
-            )}
-          </div>
-          <button onClick={onClose} className="form-button-secondary mt-4">
-            Fechar
-          </button>
-        </motion.div>
-      </motion.div>
-    );
-  };
-  if (!formData) return null;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const isCheckbox = type === 'checkbox';
-    const isChecked = (e.target as HTMLInputElement).checked;
-    setFormData(prev => ({ ...prev, [name]: isCheckbox ? isChecked : value }));
-  };
-  
-  const handleSizeChange = (index: number, field: 'key' | 'value', value: string) => {
-    const newSizes = [...sizesArray];
-    if (field === 'key') {
-      newSizes[index].key = value;
-    } else {
-      newSizes[index].value = parseFloat(value) || 0;
-    }
-    setSizesArray(newSizes);
-  };
-  
-  const addSizeField = () => {
-    setSizesArray([...sizesArray, { key: `Novo Tamanho ${sizesArray.length + 1}`, value: 0 }]);
-  };
-  
-  const removeSizeField = (index: number) => {
-    setSizesArray(sizesArray.filter((_, i) => i !== index));
-  };
-  
-  const moveSize = (index: number, direction: 'up' | 'down') => {
-    if (direction === 'up' && index === 0) return;
-    if (direction === 'down' && index === sizesArray.length - 1) return;
-    
-    const newSizes = [...sizesArray];
-    const itemToMove = newSizes[index];
-    newSizes.splice(index, 1); 
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    newSizes.splice(newIndex, 0, itemToMove); 
-    setSizesArray(newSizes);
-  };
-
-  const handleFlavorChange = (index: number, field: 'key' | 'value', value: string) => {
-    const newFlavors = [...flavorsArray];
-    if (field === 'key') {
-        newFlavors[index].key = value;
-    } else {
-        newFlavors[index].value = parseFloat(value) || 0;
-    }
-    setFlavorsArray(newFlavors);
-  };
-
-  const addFlavorField = () => {
-      setFlavorsArray([...flavorsArray, { key: `Novo Sabor ${flavorsArray.length + 1}`, value: 0 }]);
-  };
-
-  const removeFlavorField = (index: number) => {
-      setFlavorsArray(flavorsArray.filter((_: any, i: number) => i !== index));
-  };
-
-  const moveFlavor = (index: number, direction: 'up' | 'down') => {
-      if (direction === 'up' && index === 0) return;
-      if (direction === 'down' && index === flavorsArray.length - 1) return;
-
-      const newFlavors = [...flavorsArray];
-      const itemToMove = newFlavors[index];
-      newFlavors.splice(index, 1);
-      const newIndex = direction === 'up' ? index - 1 : index + 1;
-      newFlavors.splice(newIndex, 0, itemToMove);
-      setFlavorsArray(newFlavors);
-  };
-
-
-  const handleDynamicChange = (section: 'borderOptions' | 'extraOptions', key: string, field: 'name' | 'price', value: string) => {
-    const currentSection = formData[section] || {};
-    if (field === 'name') {
-      const entries = Object.entries(currentSection);
-      const newEntries = entries.map(([k, v]) => (k === key ? [value, v] : [k, v]));
-      setFormData(prev => ({ ...prev, [section]: Object.fromEntries(newEntries) }));
-    } else {
-      setFormData(prev => ({ ...prev, [section]: { ...currentSection, [key]: parseFloat(value) || 0 } }));
-    }
-  };
-
-  const addDynamicField = (section: 'borderOptions' | 'extraOptions') => {
-    const currentSection = formData[section] || {};
-    const newKey = `Novo ${Object.keys(currentSection).length + 1}`;
-    setFormData(prev => ({ ...prev, [section]: { ...currentSection, [newKey]: 0 } }));
-  };
-
-  const removeDynamicField = (section: 'borderOptions' | 'extraOptions', key: string) => {
-    const currentSection = { ...(formData[section] || {}) };
-    delete (currentSection as any)[key];
-    setFormData(prev => ({ ...prev, [section]: currentSection }));
-  };
-
-  const handleIngredientChange = (index: number, value: string) => {
-    const newIngredients = [...(formData.ingredients || [])];
-    newIngredients[index] = value;
-    setFormData(prev => ({ ...prev, ingredients: newIngredients }));
-  };
-
-  const addIngredient = () => setFormData(prev => ({ ...prev, ingredients: [...(prev.ingredients || []), ''] }));
-  const removeIngredient = (index: number) => setFormData(prev => ({ ...prev, ingredients: (prev.ingredients || []).filter((_: any, i: number) => i !== index) }));
-
-  // Função para copiar os extras
-  const handleCopyExtras = (extrasToCopy: { [key: string]: number }) => {
-    setFormData((prev) => ({
-      ...prev,
-      extraOptions: { ...(prev.extraOptions || {}), ...extrasToCopy },
-    }));
-    setIsCopyExtrasModalOpen(false);
-  };
-
-  const handleSubmit = (e?: FormEvent) => {
-    if (e && typeof e.preventDefault === 'function') e.preventDefault();
-    // Validações básicas antes de enviar
-    const trimmedName = (formData.name || '').trim();
-    const trimmedDescription = (formData.description || '').trim();
-    const category = (formData.category || '').trim();
-
-    if (!trimmedName) {
-      alert('Nome é obrigatório.');
-      return;
-    }
-    if (!trimmedDescription) {
-      alert('Descrição é obrigatória.');
-      return;
-    }
-    if (!category) {
-      alert('Categoria é obrigatória.');
-      return;
-    }
-    // Preço base deve ser >= 0 (já que schema permite min 0)
-    const priceNumber = Number(formData.price);
-    if (Number.isNaN(priceNumber) || priceNumber < 0) {
-      alert('Preço base inválido.');
-      return;
-    }
-
-    // Monta objetos filtrando chaves vazias
-    const sizesAsObject = sizesArray.reduce((acc, { key, value }) => {
-        const k = key.trim();
-        if (k) acc[k] = value;
-        return acc;
-    }, {} as { [key: string]: number });
-
-    const flavorsAsObject = flavorsArray.reduce((acc, { key, value }) => {
-        const k = key.trim();
-        if (k) acc[k] = value;
-        return acc;
-    }, {} as { [key: string]: number });
-
-    onSave({
-      ...formData,
-      name: trimmedName,
-      description: trimmedDescription,
-      category,
-      price: priceNumber,
-      sizes: sizesAsObject,
-      flavorOptions: flavorsAsObject,
-    });
-  };
-
-  const selectedCategoryObj = categories.find(c => c.value === formData.category);
-  const allowHalfAndHalfForCategory = !!selectedCategoryObj?.allowHalfAndHalf; 
-
-  const modalRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-  const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-
-  // Listener para teclado (visualViewport) em mobile
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const vv = (window as any).visualViewport as VisualViewport | undefined;
-    if (!vv) return;
-    
-    const handleResize = () => {
-      const innerH = window.innerHeight;
-      const vvh = vv.height; // altura visível descontando teclado
-      const keyboardH = innerH - vvh;
-      
-      setViewportHeight(vvh);
-      setKeyboardHeight(keyboardH > 80 ? keyboardH : 0); // considera teclado se > 80px
-      
-      // Se teclado abriu, aguardar um pouco e rolar para o elemento focado
-      if (keyboardH > 100) {
-        setTimeout(() => {
-          const focusedEl = document.activeElement as HTMLElement;
-          if (focusedEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(focusedEl.tagName)) {
-            focusedEl.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'center',
-              inline: 'nearest'
-            });
-          }
-        }, 150);
-      }
-    };
-    
-    handleResize();
-    vv.addEventListener('resize', handleResize);
-    vv.addEventListener('scroll', handleResize); // alguns navegadores emulam
-    return () => {
-      vv.removeEventListener('resize', handleResize);
-      vv.removeEventListener('scroll', handleResize);
-    };
-  }, []);
-
-  // Garantir que inputs focados sejam visíveis acima do teclado
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-    const handler = (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (!target) return;
-      if (['INPUT','TEXTAREA','SELECT'].includes(target.tagName)) {
-        setTimeout(() => {
-          // scrollIntoView suave centralizado
-            try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
-        }, 80);
-      }
-    };
-    container.addEventListener('focusin', handler);
-    return () => container.removeEventListener('focusin', handler);
-  }, []);
-
-  // Adicionar padding inferior quando teclado aberto para não esconder botão / campos finais
-  const dynamicInnerStyle: React.CSSProperties = {};
-  if (isMobile && viewportHeight) {
-    dynamicInnerStyle.maxHeight = Math.min(viewportHeight - 16, window.innerHeight * 0.95); // limita altura
-    if (keyboardHeight > 0) {
-      dynamicInnerStyle.marginBottom = Math.min(keyboardHeight * 0.1, 20); // pequeno espaço do teclado
-    }
-  }
-
-  // Scroll automático para o modal ao abrir (principalmente em telas que já estão scrolladas)
-  useEffect(() => {
-    if (modalRef.current) {
-      setTimeout(() => {
-        // Usar getBoundingClientRect para aplicar offset manual (subir um pouco mais)
-        const el = modalRef.current!;
-        const rect = el.getBoundingClientRect();
-        const absoluteTop = window.scrollY + rect.top;
-        const target = absoluteTop - 40; // sobe mais 40px
-        window.scrollTo({ top: target < 0 ? 0 : target, behavior: 'smooth' });
-      }, 40);
-    }
-  }, []);
-
-  return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        ref={scrollContainerRef}
-        className="fixed inset-0 z-50 flex items-start justify-center p-1 xs:p-2 sm:p-4 md:p-8 bg-black/40 md:bg-black/30 backdrop-blur-sm overflow-y-auto overscroll-contain"
-        style={isMobile && viewportHeight ? { 
-          height: viewportHeight, 
-          WebkitOverflowScrolling: 'touch',
-          paddingTop: keyboardHeight > 0 ? '0.25rem' : '0.5rem', // menos padding quando teclado aberto
-          paddingBottom: keyboardHeight > 0 ? '0.25rem' : '1rem'
-        } : undefined}
-        onClick={onClose}
-      >
-        <motion.div
-          initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }}
-          className="w-full max-w-6xl bg-white/95 backdrop-blur border border-purple-200 rounded-t-2xl md:rounded-2xl shadow-2xl flex flex-col sm:overflow-hidden"
-          style={{
-            ...dynamicInnerStyle,
-            // Em mobile, garantir que ocupe toda altura disponível quando teclado aberto
-            minHeight: isMobile && keyboardHeight > 0 ? 'auto' : '60vh'
-          }}
-          ref={modalRef}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {keyboardHeight > 0 && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-full flex justify-center pb-2">
-              <div className="px-3 py-1 rounded-full bg-purple-600/80 text-white text-[11px] font-medium shadow">Teclado aberto</div>
-            </div>
-          )}
-          {/* Header Sticky */}
-          <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center items-start justify-between gap-3 sm:gap-6 px-4 sm:px-6 py-3 sm:py-4 border-b bg-white/90 backdrop-blur rounded-t-2xl">
-            <div className="space-y-1 w-full">
-              <h2 className="text-lg sm:text-2xl font-bold text-purple-700 leading-tight tracking-tight">{formData._id ? 'Editar Item' : 'Adicionar Novo Item'}</h2>
-              {formData.name && <p className="text-xs sm:text-sm text-purple-500 font-medium truncate max-w-full">{formData.name}</p>}
-            </div>
-            <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
-              <button type="button" onClick={onClose} className="flex-1 sm:flex-none px-4 py-2 rounded-lg font-semibold border border-gray-300 bg-white text-gray-700 hover:border-purple-400 hover:text-purple-600 transition text-xs sm:text-base">Fechar</button>
-              <button type="button" onClick={() => handleSubmit()} className="flex-1 sm:flex-none px-5 sm:px-6 py-2 rounded-lg font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow text-xs sm:text-base">Salvar</button>
-            </div>
-          </div>
-
-          {/* Navegação por Abas */}
-          <div className="px-4 sm:px-6 border-b border-gray-200">
-            <nav className="-mb-px flex space-x-4 sm:space-x-6 overflow-x-auto" aria-label="Tabs">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors
-                    ${activeTab === tab.id
-                      ? 'border-purple-500 text-purple-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }
-                  `}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-
-          {/* Corpo Scroll */}
-          <div 
-            className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-6 sm:space-y-8"
-            style={{
-              // Em mobile com teclado aberto, garantir scroll suave
-              WebkitOverflowScrolling: 'touch',
-              // Adicionar padding extra na parte inferior quando teclado está aberto
-              paddingBottom: isMobile && keyboardHeight > 0 ? '6rem' : undefined
-            }}
-          >
-            {/* Seção Básica */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeTab}
-                initial={{ y: 10, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -10, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {activeTab === 'basic' && (
-                  <section className="grid md:grid-cols-2 gap-5 sm:gap-6">
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <label className="form-label">Nome *</label>
-                        <input type="text" name="name" value={formData.name} onChange={handleChange} className="form-input" required />
-                      </div>
-                      <div>
-                        <label className="form-label">Categoria *</label>
-                        <select 
-                          name="category" 
-                          value={formData.category} 
-                          onChange={handleChange} 
-                          className="form-input" 
-                          required
-                        >
-                          {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="form-label">Preço Base (R$) *</label>
-                        <input type="number" name="price" value={formData.price} onChange={handleChange} className="form-input" required step="0.01" />
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-4">
-                      <div>
-                        <label className="form-label">URL da Imagem</label>
-                        <input type="text" name="image" value={formData.image} onChange={handleChange} className="form-input" />
-                      </div>
-                      <div>
-                        <label className="form-label">Descrição *</label>
-                        <textarea name="description" value={formData.description} onChange={handleChange} className="form-input min-h-[120px]" />
-                      </div>
-                      <label className="inline-flex items-center gap-2 mt-2">
-                        <input type="checkbox" id="destaque" name="destaque" checked={formData.destaque} onChange={handleChange} className="form-checkbox" />
-                        <span className="text-sm text-gray-700">Item em destaque</span>
-                      </label>
-                    </div>
-                  </section>
-                )}
-
-                {activeTab === 'ingredients' && (
-                  <section className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5 max-w-3xl mx-auto">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-gray-800">Componentes / Ingredientes</h3>
-                      <button type="button" onClick={addIngredient} className="form-button-secondary text-sm">+ Adicionar</button>
-                    </div>
-                    <div className="space-y-3">
-                      {(formData.ingredients || []).map((ing, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <input type="text" value={ing} onChange={e => handleIngredientChange(index, e.target.value)} className="form-input flex-grow" placeholder={`Ingrediente ${index + 1}`} />
-                          <button type="button" onClick={() => removeIngredient(index)} className="form-button-danger p-2"><FaTrash /></button>
-                        </div>
-                      ))}
-                      {(!formData.ingredients || formData.ingredients.length === 0) && (
-                        <p className="text-xs text-center text-gray-500 py-4">Nenhum ingrediente adicionado.</p>
-                      )}
-                    </div>
-                  </section>
-                )}
-
-                {activeTab === 'sizes_flavors' && (
-                  <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
-                    {/* Tamanhos */}
-                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                        <h3 className="font-semibold text-gray-800">Tamanhos e Preços</h3>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-600">Título:</label>
-                            <input type="text" value={formData.sizesTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, sizesTitle: e.target.value }))} className="form-input w-44" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-600">Máx.:</label>
-                            <input type="number" min={1} max={10} value={formData.maxSizes ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxSizes: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
-                          </div>
-                          <button type="button" onClick={addSizeField} className="form-button-secondary text-xs">+ Tamanho</button>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        {sizesArray.map(({ key, value }, index) => (
-                          <div key={index} className="flex items-start sm:items-center gap-2">
-                            <div className="flex flex-col pt-1 sm:pt-0">
-                              <button type="button" onClick={() => moveSize(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
-                              <button type="button" onClick={() => moveSize(index, 'down')} disabled={index === sizesArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
-                            </div>
-                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                <input type="text" value={key} onChange={e => handleSizeChange(index, 'key', e.target.value)} className="form-input" placeholder="Ex: Pequena" />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-gray-500 text-sm">R$</span>
-                                    <input type="number" value={value} onChange={e => handleSizeChange(index, 'value', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
-                                </div>
-                            </div>
-                            <button type="button" onClick={() => removeSizeField(index)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
-                          </div>
-                        ))}
-                        {sizesArray.length === 0 && <p className="text-xs text-center text-gray-500 py-4">Nenhum tamanho configurado.</p>}
-                      </div>
-                    </div>
-
-                    {/* Sabores */}
-                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                        <h3 className="font-semibold text-gray-800">Sabores e Preços</h3>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-600">Título:</label>
-                            <input type="text" value={formData.flavorsTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, flavorsTitle: e.target.value }))} className="form-input w-44" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-600">Máx.:</label>
-                            <input type="number" min={1} max={10} value={formData.maxFlavors ?? 1} onChange={e => setFormData(prev => ({ ...prev, maxFlavors: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
-                          </div>
-                          <button type="button" onClick={addFlavorField} className="form-button-secondary text-xs">+ Sabor</button>
-                          <button type="button" onClick={() => setIsCopyFlavorsModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        {flavorsArray.map(({ key, value }, index) => (
-                          <div key={index} className="flex items-start sm:items-center gap-2">
-                            <div className="flex flex-col pt-1 sm:pt-0">
-                              <button type="button" onClick={() => moveFlavor(index, 'up')} disabled={index === 0} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowUp /></button>
-                              <button type="button" onClick={() => moveFlavor(index, 'down')} disabled={index === flavorsArray.length - 1} className="p-1 text-gray-400 hover:text-gray-700 disabled:opacity-40"><FaArrowDown /></button>
-                            </div>
-                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                <input type="text" value={key} onChange={e => handleFlavorChange(index, 'key', e.target.value)} className="form-input" placeholder="Ex: Chocolate" />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-gray-500 text-sm">R$</span>
-                                    <input type="number" value={value} onChange={e => handleFlavorChange(index, 'value', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
-                                </div>
-                            </div>
-                            <button type="button" onClick={() => removeFlavorField(index)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
-                          </div>
-                        ))}
-                        {flavorsArray.length === 0 && <p className="text-xs text-center text-gray-500 py-4">Nenhum sabor configurado.</p>}
-                      </div>
-                      {allowHalfAndHalfForCategory && (
-                        <div className="mt-6 p-4 rounded-lg border border-purple-200 bg-purple-50/70">
-                          <h4 className="text-sm font-semibold text-purple-700 mb-1">Opção Meio a Meio</h4>
-                          <p className="text-xs text-purple-600">Clientes poderão montar dois sabores diferentes.</p>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                )}
-
-                {activeTab === 'borders_extras' && (
-                  <section className="grid lg:grid-cols-2 gap-5 sm:gap-6">
-                    {/* Borda */}
-                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                        <h3 className="font-semibold text-gray-800">Bordas</h3>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-600">Título:</label>
-                            <input type="text" value={formData.borderTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, borderTitle: e.target.value }))} className="form-input w-44" />
-                          </div>
-                          <button type="button" onClick={() => addDynamicField('borderOptions')} className="form-button-secondary text-xs">+ Borda</button>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        {Object.entries(formData.borderOptions || {}).map(([key, value], index) => (
-                          <div key={index} className="flex items-start sm:items-center gap-2">
-                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                <input type="text" value={key} onChange={e => handleDynamicChange('borderOptions', key, 'name', e.target.value)} className="form-input" placeholder={`Borda ${index + 1}`} />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-gray-500 text-sm">+ R$</span>
-                                    <input type="number" value={value as number} onChange={e => handleDynamicChange('borderOptions', key, 'price', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
-                                </div>
-                            </div>
-                            <button type="button" onClick={() => removeDynamicField('borderOptions', key)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
-                          </div>
-                        ))}
-                        {(!formData.borderOptions || Object.keys(formData.borderOptions).length === 0) && <p className="text-xs text-center text-gray-500 py-4">Nenhuma borda configurada.</p>}
-                      </div>
-                    </div>
-
-                    {/* Extras */}
-                    <div className="bg-gray-50/70 rounded-xl border border-gray-200 p-4 sm:p-5">
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
-                        <h3 className="font-semibold text-gray-800">Adicionais</h3>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-600">Título:</label>
-                            <input type="text" value={formData.extrasTitle ?? ''} onChange={e => setFormData(prev => ({ ...prev, extrasTitle: e.target.value }))} className="form-input w-44" />
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-xs text-gray-600">Máx.:</label>
-                            <input type="number" min={1} max={10} value={formData.maxExtras ?? 2} onChange={e => setFormData(prev => ({ ...prev, maxExtras: parseInt(e.target.value) || 1 }))} className="form-input w-20" />
-                          </div>
-                          <button type="button" onClick={() => addDynamicField('extraOptions')} className="form-button-secondary text-xs">+ Extra</button>
-                          <button type="button" onClick={() => setIsCopyExtrasModalOpen(true)} className="px-3 py-1 rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 text-xs flex items-center gap-1"><FaCopy /> Copiar</button>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        {Object.entries(formData.extraOptions || {}).map(([key, value], index) => (
-                          <div key={index} className="flex items-start sm:items-center gap-2">
-                            <div className="flex-grow flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                <input type="text" value={key} onChange={e => handleDynamicChange('extraOptions', key, 'name', e.target.value)} className="form-input" placeholder={`Extra ${index + 1}`} />
-                                <div className="flex items-center gap-2">
-                                    <span className="text-gray-500 text-sm">+ R$</span>
-                                    <input type="number" value={value as number} onChange={e => handleDynamicChange('extraOptions', key, 'price', e.target.value)} className="form-input w-full sm:w-28" step="0.01" />
-                                </div>
-                            </div>
-                            <button type="button" onClick={() => removeDynamicField('extraOptions', key)} className="form-button-danger p-2 mt-1 sm:mt-0"><FaTrash /></button>
-                          </div>
-                        ))}
-                        {(!formData.extraOptions || Object.keys(formData.extraOptions).length === 0) && <p className="text-xs text-center text-gray-500 py-4">Nenhum extra configurado.</p>}
-                      </div>
-                    </div>
-                  </section>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-
-          {/* Footer removido conforme solicitação (botões já existem no topo) */}
-          {/* Espaço extra no fim quando teclado aberto */}
-          {keyboardHeight > 0 && <div style={{ height: keyboardHeight + 24 }} className="md:hidden shrink-0" />}
-        </motion.div>
-      </motion.div>
-      <AnimatePresence>
-        {isCopyExtrasModalOpen && (
-          <CopyExtrasModal
-            menuItems={menuItems}
-            currentItemId={formData._id}
-            onCopy={handleCopyExtras}
-            onClose={() => setIsCopyExtrasModalOpen(false)}
-          />
-        )}
-        {isCopyFlavorsModalOpen && (
-          <CopyFlavorsModal
-            menuItems={menuItems}
-            currentItemId={formData._id}
-            onCopy={handleCopyFlavors}
-            onClose={() => setIsCopyFlavorsModalOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-    </>
-  );
-};
-
+import { FaPlus, FaEdit, FaTrash, FaSave, FaListAlt, FaThList } from 'react-icons/fa';
 
 // --- COMPONENTE DE CATEGORIAS (TEMA CLARO) ---
 const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories: { _id?: string; value: string; label: string; order?: number }[]; onUpdate: () => void }) => {
@@ -907,12 +127,7 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
       setOrderDirty(true);
     };
 
-    const sameOrder = (a: typeof categories, b: typeof categories) => a.map(c=>c._id).join('|') === b.map(c=>c._id).join('|');
-
-    const persistIfChanged = async () => {
-      // Mantido para retrocompatibilidade, mas agora usamos saveOrder explicitamente
-      await saveOrder();
-    };
+    // Removido: sameOrder/persistIfChanged não são mais usados
 
     const saveOrder = async () => {
       if (!categories.length) return;
@@ -1126,14 +341,23 @@ const CategoriesTab = ({ categories: initialCategories, onUpdate }: { categories
 
 // --- COMPONENTE PRINCIPAL (TEMA CLARO) ---
 export default function AdminMenu() {
+  const router = useRouter();
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<Partial<MenuItem> | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('todas');
+  // Removidos: estados do modal
+  // const [isModalOpen, setIsModalOpen] = useState(false);
+  // const [editingItem, setEditingItem] = useState<Partial<MenuItem> | null>(null);
   const [activeTab, setActiveTab] = useState<'menu' | 'categories'>('menu');
   const [categories, setCategories] = useState<{ _id?: string; value: string; label: string; order?: number }[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+
+  // Seleciona a primeira categoria ao carregar
+  useEffect(() => {
+    if (categories.length > 0 && !selectedCategory) {
+      setSelectedCategory(categories[0].value);
+    }
+  }, [categories, selectedCategory]);
   const [deletingItems, setDeletingItems] = useState<Set<string>>(new Set());
 
   const fetchData = async () => {
@@ -1166,21 +390,7 @@ export default function AdminMenu() {
     }
   };
 
-  const handleOpenModal = (item: Partial<MenuItem> | null = null) => { 
-    setEditingItem(item || {}); 
-    setIsModalOpen(true); 
-  };
-  const handleCloseModal = () => { setIsModalOpen(false); setEditingItem(null); };
-
-  const handleSaveItem = async (itemData: Partial<MenuItem>) => {
-    const method = itemData._id ? 'PUT' : 'POST';
-    const url = '/api/menu'; // Sempre usar a rota base
-    try {
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(itemData) });
-      if (res.ok) { handleCloseModal(); fetchData(); }
-      else { alert("Erro ao salvar o item.") }
-    } catch (error) { alert("Erro de conexão.") }
-  };
+  // Removidos: handlers de modal e salvar direto
 
   const handleDeleteItem = async (id?: string, name?: string) => {
     if (!id || !name || !confirm(`Excluir "${name}"?`)) return;
@@ -1196,7 +406,7 @@ export default function AdminMenu() {
     }
   };
 
-  const filteredItems = menuItems.filter((item) => selectedCategory === 'todas' || item.category === selectedCategory);
+  const filteredItems = menuItems.filter((item) => selectedCategory ? item.category === selectedCategory : true);
 
   return (
     <div className="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen text-gray-900 p-4 sm:p-6 lg:p-8">
@@ -1269,7 +479,7 @@ export default function AdminMenu() {
                       onChange={(e) => setSelectedCategory(e.target.value)} 
                       className="w-full sm:w-64 form-input appearance-none bg-white"
                     >
-                      <option value="todas">📋 Todas as Categorias</option>
+                      {/* Removido: opção de todas as categorias */}
                       {categories.map((cat) => (<option key={cat.value} value={cat.value}>🏷️ {cat.label}</option>))}
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none mt-8">
@@ -1290,7 +500,7 @@ export default function AdminMenu() {
                   </div>
                 </div>
                 <motion.button 
-                  onClick={() => handleOpenModal()} 
+                  onClick={() => router.push('/admin/menu/new')} 
                   whileHover={{ scale: 1.02 }} 
                   whileTap={{ scale: 0.98 }}
                   className="w-full lg:w-auto form-button-primary px-6 py-3 text-base font-bold"
@@ -1317,13 +527,10 @@ export default function AdminMenu() {
                     </div>
                     <h3 className="text-xl font-semibold text-gray-600 mb-2">Nenhum item encontrado</h3>
                     <p className="text-gray-500 text-center mb-6 max-w-md">
-                      {selectedCategory === 'todas' 
-                        ? 'Seu cardápio está vazio. Adicione alguns itens para começar!'
-                        : `Não há itens na categoria "${categories.find(c => c.value === selectedCategory)?.label || selectedCategory}".`
-                      }
+                      {`Não há itens na categoria "${categories.find(c => c.value === selectedCategory)?.label || selectedCategory}".`}
                     </p>
                     <motion.button 
-                      onClick={() => handleOpenModal()} 
+                      onClick={() => router.push('/admin/menu/new')} 
                       whileHover={{ scale: 1.05 }} 
                       whileTap={{ scale: 0.95 }}
                       className="form-button-primary px-6 py-3"
@@ -1385,7 +592,7 @@ export default function AdminMenu() {
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.95 }}
                             className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-3 rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all shadow-md hover:shadow-lg" 
-                            onClick={() => handleOpenModal(item)}
+                            onClick={() => router.push(`/admin/menu/${item._id}`)}
                             title="Editar item"
                           >
                             <FaEdit className="text-sm" />
@@ -1418,9 +625,7 @@ export default function AdminMenu() {
         {activeTab === 'categories' && <CategoriesTab categories={categories} onUpdate={fetchData} />}
       </div>
 
-      <AnimatePresence>
-        {isModalOpen && <ItemModal item={editingItem!} onClose={handleCloseModal} onSave={handleSaveItem} categories={categories} menuItems={menuItems} />}
-      </AnimatePresence>
+      {/* Modal removido: navegação para páginas dedicadas de criação/edição */}
     </div>
   );
 }

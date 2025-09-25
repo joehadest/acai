@@ -1,11 +1,31 @@
 import { Pedido } from '@/types';
 
-export function generateReceiptText(pedido: Pedido): string {
+type ReceiptOptions = {
+    settings?: {
+        restaurantName?: string;
+        cnpj?: string;
+        addressStreet?: string;
+        addressNumber?: string;
+        addressCity?: string;
+        contactPhone?: string;
+    }
+};
+
+export function generateReceiptText(pedido: Pedido, opts?: ReceiptOptions): string {
     const lines: string[] = [];
 
     // Cabeçalho
     lines.push('================================');
-    lines.push('         ACAI ALTO STOP         ');
+    const s = opts?.settings;
+    const title = (s?.restaurantName || 'ACAI ALTO STOP').toUpperCase();
+    const centered = title.length >= 32 ? title : title.padStart(Math.floor((32 - title.length) / 2) + title.length).padEnd(32);
+    lines.push(centered);
+    if (s?.cnpj) lines.push(`CNPJ: ${s.cnpj}`);
+    if (s?.addressStreet || s?.addressCity) {
+        const endLine = `${s?.addressStreet || ''} ${s?.addressNumber || ''} - ${s?.addressCity || ''}`.trim();
+        if (endLine) lines.push(endLine);
+    }
+    if (s?.contactPhone) lines.push(`Tel: ${s.contactPhone}`);
     lines.push('================================');
     lines.push('');
 
@@ -45,6 +65,9 @@ export function generateReceiptText(pedido: Pedido): string {
         }
         const endereco = pedido.endereco as any;
         lines.push(`Taxa Entrega: R$ ${endereco.deliveryFee?.toFixed(2) || '0.00'}`);
+        if (endereco.estimatedTime) {
+            lines.push(`Previsão: ${endereco.estimatedTime}`);
+        }
     }
     lines.push('');
 
@@ -52,6 +75,8 @@ export function generateReceiptText(pedido: Pedido): string {
     lines.push('================================');
     lines.push('           ITENS                ');
     lines.push('================================');
+    lines.push(`Qtd. Itens: ${pedido.itens.reduce((acc, it) => acc + (it.quantidade || 0), 0)}`);
+    lines.push('');
     pedido.itens.forEach(item => {
         lines.push(`${item.quantidade}x ${item.nome}`);
         if (item.size) {
@@ -115,9 +140,9 @@ export function generateReceiptText(pedido: Pedido): string {
     return lines.join('\n');
 }
 
-export function generateReceiptHTML(pedido: Pedido): string {
+export function generateReceiptHTML(pedido: Pedido, opts?: ReceiptOptions): string {
     const pedidoId = typeof pedido._id === 'string' ? pedido._id : (pedido._id as any).toString();
-    const text = generateReceiptText(pedido);
+    const text = generateReceiptText(pedido, opts);
     return `
         <!DOCTYPE html>
         <html>

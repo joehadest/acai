@@ -141,7 +141,7 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
             });
             const data = await res.json();
             if (data.success) {
-                const message = `Olá, gostaria de fazer o seguinte pedido:\n\n` +
+                const message = `Olá, segue os detalhes do meu pedido:\n\n` +
                 `*Pedido #${data.pedidoId}*\n\n` +
                 `*Cliente:*\n` +
                 `Nome: ${customerName}\n` +
@@ -166,9 +166,10 @@ const Cart = ({ items, onUpdateQuantity, onRemoveItem, onCheckout, onClose }: Ca
                     `Rua: ${customerAddress.street}, ${customerAddress.number}\n` +
                     (customerAddress.complement ? `Complemento: ${customerAddress.complement}\n` : '') +
                     `Bairro: ${customerAddress.neighborhood}\n` +
-                    (customerAddress.referencePoint ? `Ponto de Referência: ${customerAddress.referencePoint}\n` : '')
+                    (customerAddress.referencePoint ? `Ponto de Referência: ${customerAddress.referencePoint}\n` : '') +
+                    (deliveryFee > 0 ? `Tempo Estimado: 30-45 minutos\n` : '')
                     : `*Tipo de Entrega:* Retirada no local\n`) +
-                `\n*Observações Gerais:* ${pedido.itens.map(i => i.observacao).filter(Boolean).join(', ')}`;
+                (items.some(i => i.observation) ? `\n*Observações Gerais:* ${items.map(i => i.observation).filter(Boolean).join(', ')}` : '');
                 const encodedMessage = encodeURIComponent(message);
                 const link = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
                 setWhatsappLink(link);

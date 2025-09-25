@@ -105,7 +105,22 @@ export async function GET(request: Request) {
                     }
 
                     if (print === 'true') {
-                        const html = generateReceiptHTML(pedido as unknown as Pedido);
+                        // Buscar configurações do restaurante para personalizar o cabeçalho do recibo
+                        let settingsDoc: any = null;
+                        try {
+                            settingsDoc = await db.collection('settings').findOne({});
+                        } catch {}
+                        const opts = settingsDoc ? {
+                            settings: {
+                                restaurantName: settingsDoc.restaurantName,
+                                cnpj: settingsDoc.cnpj,
+                                addressStreet: settingsDoc.addressStreet,
+                                addressNumber: settingsDoc.addressNumber,
+                                addressCity: settingsDoc.addressCity,
+                                contactPhone: settingsDoc.contactPhone,
+                            }
+                        } : undefined;
+                        const html = generateReceiptHTML(pedido as unknown as Pedido, opts);
                         return new NextResponse(html, {
                             headers: {
                                 'Content-Type': 'text/html; charset=utf-8',

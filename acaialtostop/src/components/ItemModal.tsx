@@ -226,6 +226,11 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
 
     const toggleSize = (size: string) => {
         setSelectedSizes(prev => {
+            // Se for escolha única, substitui a seleção ou desmarca.
+            if (maxSizes === 1) {
+                return prev.includes(size) ? [] : [size];
+            }
+            // Lógica para múltipla escolha
             if (prev.includes(size)) {
                 return prev.filter(s => s !== size);
             } else {
@@ -241,6 +246,11 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
 
     const toggleFlavor = (flavor: string) => {
         setSelectedFlavors(prev => {
+            // Se for escolha única, substitui a seleção ou desmarca.
+            if (maxFlavors === 1) {
+                return prev.includes(flavor) ? [] : [flavor];
+            }
+            // Lógica para múltipla escolha
             if (prev.includes(flavor)) {
                 return prev.filter(f => f !== flavor);
             } else {
@@ -256,6 +266,11 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
 
     const toggleExtra = (extra: string) => {
         setSelectedExtras(prev => {
+            // Se for escolha única, substitui a seleção ou desmarca.
+            if (maxExtras === 1) {
+                return prev.includes(extra) ? [] : [extra];
+            }
+            // Lógica para múltipla escolha
             if (prev.includes(extra)) {
                 return prev.filter(e => e !== extra);
             } else {
@@ -270,7 +285,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
     const modalContent = (
       <AnimatePresence>
         <motion.div
-          className="fixed inset-0 z-[10000] flex items-start md:items-center justify-center p-0 md:p-6"
+          className="fixed inset-0 z-[10000] flex items-end md:items-center justify-center p-0 md:p-6"
           variants={overlayVariants}
           initial="hidden"
           animate="visible"
@@ -382,7 +397,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                                     {Object.entries(item.sizes).map(([sizeKey, price]) => {
                                       const isSelected = selectedSizes.includes(sizeKey);
-                                      const isDisabled = !isSelected && selectedSizes.length >= maxSizes;
+                                      const isDisabled = !isSelected && selectedSizes.length >= maxSizes && maxSizes > 1;
                                       return (
                                         <button
                                           key={sizeKey}
@@ -408,7 +423,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                                     {Object.entries(item.flavorOptions).map(([flavorKey, price]) => {
                                       const isSelected = selectedFlavors.includes(flavorKey);
-                                      const isDisabled = !isSelected && selectedFlavors.length >= maxFlavors;
+                                      const isDisabled = !isSelected && selectedFlavors.length >= maxFlavors && maxFlavors > 1;
                                       return (
                                         <button
                                           key={flavorKey}
@@ -463,7 +478,7 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                                     {Object.entries(item.extraOptions).map(([key, value]) => {
                                       const isSelected = selectedExtras.includes(key);
-                                      const isDisabled = !isSelected && selectedExtras.length >= maxExtras;
+                                      const isDisabled = !isSelected && selectedExtras.length >= maxExtras && maxExtras > 1;
                                       return (
                                         <button
                                           key={key}
@@ -563,8 +578,11 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                           </div>
                         </form>
                       </div>
-                      {/* Barra fixa inferior mobile */}
-                      <div className="md:hidden sticky bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-purple-100 px-5 py-4 flex items-center gap-4 shadow-[0_-2px_8px_-2px_rgba(0,0,0,0.08)]">
+                      {/* Rodapé fixo mobile */}
+                      <div
+                        className="md:hidden sticky bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-purple-100 px-5 py-4 flex items-center gap-4 shadow-[0_-2px_8px_-2px_rgba(0,0,0,0.08)]"
+                        style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+                      >
                         <div className="flex flex-col leading-tight">
                           <span className="text-[11px] font-medium uppercase tracking-wider text-gray-500">Total</span>
                           <span className="text-xl font-bold text-purple-700">R$ {calculateTotal().toFixed(2)}</span>
@@ -572,11 +590,10 @@ export default function ItemModal({ item, onClose, onAddToCart, allPizzas, categ
                         <motion.button
                           whileTap={{ scale: 0.95 }}
                           type="submit"
-                          form="" // form implícito - botão dentro do mesmo escopo
+                          form="" 
                           disabled={isHalf && (!half1 || !half2)}
                           className="flex-1 px-6 py-3 rounded-xl font-semibold bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white shadow-md hover:from-purple-700 hover:to-fuchsia-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                           onClick={() => {
-                            // disparar submit manual para garantir
                             const form = contentRef.current?.querySelector('form');
                             form && (form as HTMLFormElement).requestSubmit();
                           }}

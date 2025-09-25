@@ -283,24 +283,25 @@ export default function RecentOrders() {
         `*Cliente:*\n` +
         `Nome: ${pedido.cliente?.nome || 'Não informado'}\n` +
         `Telefone: ${pedido.cliente?.telefone || 'Não informado'}\n\n` +
-        `*Endereço:*\n` +
         (pedido.tipoEntrega === 'entrega'
-          ? `Rua: ${pedido.endereco?.address?.street || '-'}, ${pedido.endereco?.address?.number || '-'}\n` +
-          (pedido.endereco?.address?.complement ? `Complemento: ${pedido.endereco.address.complement}\n` : '') +
-          `Bairro: ${pedido.endereco?.address?.neighborhood || '-'}\n` +
-          `Ponto de Referência: ${pedido.endereco?.address?.referencePoint || '-'}\n\n`
+          ? `*Endereço:*\n` +
+            `Rua: ${pedido.endereco?.address?.street || '-'}, ${pedido.endereco?.address?.number || '-'}\n` +
+            (pedido.endereco?.address?.complement ? `Complemento: ${pedido.endereco.address.complement}\n` : '') +
+            `Bairro: ${pedido.endereco?.address?.neighborhood || '-'}\n` +
+            `Ponto de Referência: ${pedido.endereco?.address?.referencePoint || '-'}\n` +
+            (pedido.endereco?.estimatedTime ? `Tempo Estimado: ${pedido.endereco.estimatedTime}\n\n` : '\n')
           : `*Tipo de Entrega:* Retirada no Local\n\n`) +
         `*Itens:*\n` +
         pedido.itens.map(item =>
           `${item.quantidade}x ${item.nome}` +
-          (item.size ? ` (${item.size})` : '') +
-          (item.border ? ` - Borda: ${item.border}` : '') +
-          (item.extras && item.extras.length > 0 ? ` - Extras: ${item.extras.join(', ')}` : '') +
-          (item.observacao ? `\nObs: ${item.observacao}` : '') +
-          ` - R$ ${(item.preco * item.quantidade).toFixed(2)}`
+          (item.size ? `\n  - Tamanho: ${item.size}` : '') +
+          (Array.isArray((item as any).flavors) && (item as any).flavors.length > 0 ? `\n  - Sabores: ${(item as any).flavors.join(', ')}` : '') +
+          (item.border ? `\n  - Borda: ${item.border}` : '') +
+          (item.extras && item.extras.length > 0 ? `\n  - Extras: ${item.extras.join(', ')}` : '') +
+          (item.observacao ? `\n  - Obs: ${item.observacao}` : '') +
+          `\n  Subtotal: R$ ${(item.preco * item.quantidade).toFixed(2)}`
         ).join('\n') + '\n\n' +
-        `*Forma de Pagamento:* ${pedido.formaPagamento?.toLowerCase() === 'pix' ? 'PIX' : 'Dinheiro'}\n` +
-        (pedido.formaPagamento?.toLowerCase() === 'pix' ? `*Chave PIX:* 8498729126\n` : '') +
+        `*Forma de Pagamento:* ${pedido.formaPagamento?.toUpperCase() || '-'}${pedido.troco ? ` (Troco: R$ ${pedido.troco})` : ''}\n` +
         `*Subtotal:* R$ ${(pedido.total - (pedido.endereco?.deliveryFee || 0)).toFixed(2)}\n` +
         (pedido.tipoEntrega === 'entrega' ? `*Taxa de Entrega:* R$ ${(pedido.endereco?.deliveryFee || 0).toFixed(2)}\n` : '') +
         `*Total:* R$ ${pedido.total.toFixed(2)}`;

@@ -72,28 +72,12 @@ export default function MenuDisplay() {
         fetchSettingsData();
     }, []);
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
-    // Guardamos refs auxiliares para otimizar a lógica de scroll
     const sectionMetaRef = useRef<{value:string; el: HTMLElement; height: number; top: number;}[]>([]);
-    const scrollingByClickRef = useRef(false); // lock temporário após clique
-    const lastSetRef = useRef<string | null>(null); // para hysteresis
+    const scrollingByClickRef = useRef(false);
+    const lastSetRef = useRef<string | null>(null);
     const rAFRef = useRef<number | null>(null);
     const recomputeNeededRef = useRef(true);
 
-    /*
-     * ===== Seleção Automática de Categoria (Refatorada) =====
-     * Objetivos:
-     *  - Remover flicker e trocas precoces entre categorias.
-     *  - Evitar dupla lógica (IntersectionObserver + cálculo manual).
-     *  - Dar prioridade à categoria realmente dominante na área visível.
-     *  - Respeitar cliques do usuário (lock temporário para não sobrescrever durante scroll suave).
-     *  - Minimizar custo em scroll usando requestAnimationFrame (1 cálculo por frame no máximo).
-     * Estratégia:
-     *  - Mantemos metadados (top absoluto e altura) de cada seção.
-     *  - A cada scroll (throttle via rAF) calculamos um score: visibilidade normalizada - penalidade de distância da âncora (25% do viewport).
-     *  - Hysteresis: só trocamos se a nova categoria superar a anterior por margem (8%).
-     *  - Lock de ~650ms após clique: impede auto troca até terminar o scroll animado.
-     *  - Recomputamos metadados quando categorias ou itens mudam, ou em resize.
-     */
     const { isOpen, toggleOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -124,42 +108,37 @@ export default function MenuDisplay() {
         } else {
             document.body.style.overflow = 'auto';
         }
-
-        // Cleanup function to restore scroll on component unmount
         return () => {
             document.body.style.overflow = 'auto';
         };
     }, [selectedItem, selectedPasta]);
 
-    // Recalcula metadados das seções (top/height) — chamado quando categorias ou itens mudam
     const recomputeSectionMeta = () => {
         sectionMetaRef.current = categories.map(cat => {
             const el = document.getElementById(`category-${cat.value}`) as HTMLElement | null;
             if (!el) return null;
             const rect = el.getBoundingClientRect();
-            const top = rect.top + window.scrollY; // posição absoluta
+            const top = rect.top + window.scrollY;
             return { value: cat.value, el, height: el.offsetHeight, top };
         }).filter(Boolean) as {value:string; el: HTMLElement; height: number; top: number;}[];
         recomputeNeededRef.current = false;
     };
 
-    // Marca necessidade de recomputar quando categorias mudam
     useEffect(() => {
         recomputeNeededRef.current = true;
     }, [categories, menuItems]);
 
-    // Handler principal de scroll com requestAnimationFrame e heurística
     useEffect(() => {
         if (categories.length === 0) return;
 
-        const anchorRatio = 0.25; // linha de referência a 25% do viewport
-        const hysteresisAdvantage = 0.08; // nova categoria precisa de 8% de score melhor
-        const lockDuration = 650; // ms de bloqueio após clique
+        const anchorRatio = 0.25;
+        const hysteresisAdvantage = 0.08;
+        const lockDuration = 650;
         let lastCalc = 0;
 
         const calcActive = () => {
             rAFRef.current = null;
-            if (scrollingByClickRef.current) return; // lock ativo — não mudar
+            if (scrollingByClickRef.current) return;
             if (recomputeNeededRef.current) recomputeSectionMeta();
             if (sectionMetaRef.current.length === 0) return;
 
@@ -173,26 +152,22 @@ export default function MenuDisplay() {
             sectionMetaRef.current.forEach(meta => {
                 const { top, height } = meta;
                 const bottom = top + height;
-                // área visível aproximada
                 const visible = Math.max(0, Math.min(bottom, viewportTop + viewportH) - Math.max(top, viewportTop));
                 if (visible <= 0) return;
-                // distância do centro da seção à linha âncora
                 const center = top + height / 2;
                 const dist = Math.abs(center - anchorY);
-                const normVis = visible / height; // 0..1
-                const score = normVis - dist / 2000; // penaliza distância
+                const normVis = visible / height;
+                const score = normVis - dist / 2000;
                 if (score > bestScore) {
                     bestScore = score;
                     bestValue = meta.value;
                 }
             });
 
-            // Hysteresis: só troca se ganho for suficiente
             if (lastSetRef.current && lastSetRef.current !== bestValue) {
-                // encontrar score anterior (aproxima recalculando) — simples
                 const prevMeta = sectionMetaRef.current.find(m => m.value === lastSetRef.current);
                 if (prevMeta) {
-                    const viewportTop2 = viewportTop; // reutiliza
+                    const viewportTop2 = viewportTop;
                     const viewportH2 = viewportH;
                     const anchorY2 = anchorY;
                     const top = prevMeta.top; const height = prevMeta.height; const bottom = top + height;
@@ -201,7 +176,7 @@ export default function MenuDisplay() {
                     const dist = Math.abs(center - anchorY2);
                     const prevScore = (visible / height) - dist / 2000;
                     if (bestScore < prevScore + hysteresisAdvantage) {
-                        return; // não muda ainda
+                        return;
                     }
                 }
             }
@@ -213,12 +188,10 @@ export default function MenuDisplay() {
         };
 
         const onScroll = () => {
-            // throttle leve por frame
             if (rAFRef.current) return;
             rAFRef.current = requestAnimationFrame(calcActive);
         };
 
-        // Recalcula inicialmente após pequeno delay para layout estabilizar
         const initTimeout = setTimeout(() => {
             recomputeSectionMeta();
             calcActive();
@@ -229,13 +202,11 @@ export default function MenuDisplay() {
 
         return () => {
             window.removeEventListener('scroll', onScroll);
-            // não removemos listener inline de resize (anônimo) — alternativa: extrair função se necessário
             if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
             clearTimeout(initTimeout);
         };
     }, [categories, menuItems]);
 
-    // Função para recarregar dados do menu
     const refreshMenuData = async () => {
         try {
             const response = await fetch('/api/menu');
@@ -311,23 +282,24 @@ export default function MenuDisplay() {
         fetchSettings();
     }, []);
 
-    // Atualização automática dos dados do menu a cada 30 segundos
     useEffect(() => {
         const interval = setInterval(() => {
             refreshMenuData();
-        }, 30000); // 30 segundos
+        }, 30000);
 
         return () => clearInterval(interval);
     }, []);
 
-    // Alinha pill da categoria somente quando mudança veio de clique manual
+    // MELHORIA: Lógica de rolagem da categoria simplificada para sempre centralizar com animação.
     useEffect(() => {
         if (!selectedCategory || !categoriesContainerRef.current) return;
-        if (!scrollingByClickRef.current) return; // evita interferir no scroll manual para cima
-        const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`);
-        if (btn && typeof (btn as HTMLElement).scrollIntoView === 'function') {
-            (btn as HTMLElement).scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }
+        const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`) as HTMLElement | null;
+        if (!btn) return;
+
+        // A lógica de `scrollingByClickRef` no handler de clique já previne
+        // que o scrollspy (rolagem automática) interfira durante o scroll iniciado pelo clique do usuário.
+        // Portanto, podemos sempre chamar a rolagem suave aqui.
+        btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, [selectedCategory]);
 
     useEffect(() => {
@@ -365,12 +337,11 @@ export default function MenuDisplay() {
         if (category) {
             const element = document.getElementById(`category-${category}`);
             if (element) {
-                const offset = 140;
+                const offset = 140; 
                 const target = Math.max(0, element.offsetTop - offset);
                 const startY = window.scrollY;
                 scrollingByClickRef.current = true;
                 window.scrollTo({ top: target, behavior: 'smooth' });
-                // Listener para cancelar lock se usuário começar a rolar manualmente na direção oposta
                 const onWheel = (e: WheelEvent) => {
                     const goingUp = e.deltaY < 0;
                     const wantDown = target > startY;
@@ -391,8 +362,6 @@ export default function MenuDisplay() {
     };
     
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
-
-    // Remove antiga lógica duplicada de detecção (substituída pelo rAF unificado acima)
 
     useEffect(() => {
         async function fetchDeliveryFees() {
@@ -421,13 +390,11 @@ export default function MenuDisplay() {
         clearCart();
     };
     
-    // CORREÇÃO AQUI: Adicionado o parâmetro `flavors`
     const handleAddToCart = (item: MenuItem, quantity: number, unitPrice: number, observation: string, size?: string, border?: string, extras?: string[], flavors?: string[]) => {
         addToCart(item, quantity, unitPrice, observation, size, border, extras, flavors);
         setSelectedItem(null);
-        setIsCartOpen(true); // Abre o carrinho ao adicionar
+        setIsCartOpen(true);
     };
-
 
     const handlePastaClick = (item: MenuItem) => {
         setSelectedPasta(item);
@@ -458,39 +425,42 @@ export default function MenuDisplay() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-gray-100">
-            <div className="sticky top-0 z-40">
+            <div className="sticky top-24 z-40">
                             <div className="bg-white/90 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm"> 
                                 <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
                                     <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300/70 to-transparent" />
                                     <motion.div
                                         ref={categoriesContainerRef}
-                                        className="flex gap-2 overflow-x-auto pb-2 no-scrollbar"
+                                        className="flex gap-2 overflow-x-auto py-2 no-scrollbar"
                                         style={{ WebkitOverflowScrolling: 'touch' }}
                                     >
-                                        {categories.map(category => {
-                                            const active = selectedCategory === category.value;
-                                            return (
-                                                <motion.button
-                                                    key={category.value}
-                                                    data-category={category.value}
-                                                    onClick={() => handleCategoryClick(category.value)}
-                                                    whileTap={{ scale: 0.94 }}
-                                                    className={`group relative flex-shrink-0 whitespace-nowrap text-[11px] sm:text-xs font-semibold tracking-wide px-4 py-2 rounded-full transition-colors border ${
-                                                        active
-                                                            ? 'bg-white text-purple-700 border-purple-300 shadow-sm'
-                                                            : 'bg-white/40 border-transparent text-gray-600 hover:text-gray-800 hover:bg-white'
-                                                    }`}
-                                                >
-                                                    <span className="uppercase tracking-wider">{category.label}</span>
-                                                    {active && (
-                                                        <motion.span
-                                                            layoutId="catGlow"
-                                                            className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-purple-500/20 via-purple-500/10 to-purple-500/20 blur-sm"
-                                                        />
-                                                    )}
-                                                </motion.button>
-                                            );
-                                        })}
+                                        {categories
+                                            .filter(category => category.value !== 'all' && category.value !== 'todas')
+                                            .map(category => {
+                                                const active = selectedCategory === category.value;
+                                                return (
+                                                    <motion.button
+                                                        key={category.value}
+                                                        data-category={category.value}
+                                                        onClick={() => handleCategoryClick(category.value)}
+                                                        whileTap={{ scale: 0.94 }}
+                                                        className={`group relative flex-shrink-0 whitespace-nowrap text-xs sm:text-sm font-semibold tracking-wide px-4 py-2 rounded-full transition-all duration-200 border ${
+                                                            active
+                                                                ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                                                                : 'bg-white border-gray-200 text-gray-700 hover:text-purple-600 hover:border-purple-300'
+                                                        }`}
+                                                    >
+                                                        <span>{category.label}</span>
+                                                        {active && (
+                                                            <motion.span
+                                                                layoutId="catGlow"
+                                                                className="absolute inset-0 -z-10 rounded-full bg-purple-600/30 blur-lg"
+                                                                transition={{type: "spring", stiffness: 300, damping: 30}}
+                                                            />
+                                                        )}
+                                                    </motion.button>
+                                                );
+                                            })}
                                     </motion.div>
                                 </div>
                             </div>
