@@ -95,16 +95,16 @@ export default function Header() {
 
     return (
     <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50 sticky top-0">
-        {/* MELHORIA: Reduzido o padding horizontal em telas muito pequenas (px-2) */}
         <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 h-24 flex justify-between items-center">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    // MELHORIA: gap-2 para telas menores
                     className="flex items-center gap-2 sm:gap-3"
                 >
                     <Image
-                        src={settings.logoUrl || "/logo.jpg"}
+                        // MELHORIA: A key força o React a renderizar a imagem de novo quando a URL muda, evitando mostrar o placeholder errado.
+                        key={settings.logoUrl || 'loading-logo'}
+                        src={loading ? '' : (settings.logoUrl || "/logo.jpg")}
                         alt="Logo"
                         width={64}
                         height={64}
@@ -112,10 +112,18 @@ export default function Header() {
                         priority
                     />
                      <div className="flex flex-col">
-                        {/* MELHORIA: Tamanho da fonte reduzido em telas pequenas (text-lg) */}
-                        <h1 className="text-lg sm:text-xl font-bold text-gray-800">{settings.restaurantName || "Do'Cheff"}</h1>
-                        {/* MELHORIA: Subtítulo oculto em telas muito pequenas */}
-                        <p className="hidden xs:block text-xs text-gray-500">{settings.menuSubtitle || 'Cardápio Digital'}</p>
+                        {/* MELHORIA: Efeito "skeleton" enquanto carrega */}
+                        {loading ? (
+                            <div className="space-y-2">
+                                <div className="h-5 bg-gray-200 rounded w-32 animate-pulse"></div>
+                                <div className="h-3 bg-gray-200 rounded w-24 animate-pulse"></div>
+                            </div>
+                        ) : (
+                            <>
+                                <h1 className="text-lg sm:text-xl font-bold text-gray-800">{settings.restaurantName}</h1>
+                                <p className="hidden xs:block text-xs text-gray-500">{settings.menuSubtitle}</p>
+                            </>
+                        )}
                     </div>
                 </motion.div>
 
@@ -124,7 +132,6 @@ export default function Header() {
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-2 sm:gap-4"
                 >
-                    {/* MELHORIA: Botão de status com texto e padding reduzidos em telas pequenas */}
                     <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
@@ -140,7 +147,6 @@ export default function Header() {
                         </span>
                         <span className="hidden sm:inline">{loading ? '...' : isOpen ? 'Aberto' : 'Fechado'}</span>
                     </motion.button>
-                    {/* MELHORIA: Padding do botão de informações reduzido */}
                      <button
                         className="ml-1 sm:ml-2 bg-white text-gray-600 p-2 sm:p-3 rounded-full shadow-sm hover:bg-gray-100 ring-1 ring-inset ring-gray-200 transition-colors flex items-center justify-center"
                         onClick={() => setShowInfo(true)}
@@ -151,7 +157,6 @@ export default function Header() {
                 </motion.div>
             </div>
 
-            {/* Modal de informações do restaurante */}
             {mounted && createPortal(
                 <AnimatePresence>
                     {showInfo && (
@@ -171,7 +176,6 @@ export default function Header() {
                                 className="relative w-full max-w-lg rounded-t-3xl sm:rounded-2xl overflow-hidden bg-gray-50 flex flex-col max-h-[90vh]"
                                 onClick={e => e.stopPropagation()}
                             >
-                                {/* Cabeçalho do Modal */}
                                 <div className="p-4 flex-shrink-0">
                                     <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mb-4"></div>
                                     <div className="flex items-center justify-between">
@@ -186,7 +190,6 @@ export default function Header() {
                                     </div>
                                 </div>
                                 
-                                {/* Conteúdo com Scroll */}
                                 <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2 space-y-6">
                                     <section>
                                         <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaClock className="text-purple-600"/> Horários</h3>
@@ -254,7 +257,6 @@ export default function Header() {
                                         </div>
                                     </section>
                                 </div>
-                                {/* Botão de fechar fixo no rodapé */}
                                 <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-gray-200 sticky bottom-0">
                                     <button onClick={()=> setShowInfo(false)} className="w-full text-base font-semibold px-4 py-3 rounded-xl bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition">Fechar</button>
                                 </div>
