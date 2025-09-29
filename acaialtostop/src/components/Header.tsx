@@ -60,9 +60,9 @@ export default function Header() {
         }, 60000);
         return () => clearInterval(interval);
     }, [businessHours, checkOpenStatus]);
-    
+
     useEffect(() => { setMounted(true); }, []);
-    
+
     const renderBusinessHours = () => {
         if (!businessHours) {
             return <p>Carregando horários...</p>;
@@ -94,24 +94,31 @@ export default function Header() {
     };
 
     return (
-    <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50 sticky top-0">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 h-24 flex justify-between items-center">
+        <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50 sticky top-0">
+            <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 h-24 flex justify-between items-center">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     className="flex items-center gap-2 sm:gap-3"
                 >
-                    <Image
-                        // MELHORIA: A key força o React a renderizar a imagem de novo quando a URL muda, evitando mostrar o placeholder errado.
-                        key={settings.logoUrl || 'loading-logo'}
-                        src={loading ? '' : (settings.logoUrl || "/logo.jpg")}
-                        alt="Logo"
-                        width={64}
-                        height={64}
-                        className="rounded-full bg-gray-200 shadow-sm border border-gray-300 object-cover flex-shrink-0"
-                        priority
-                    />
-                     <div className="flex flex-col">
+                    {loading ? (
+                        <div
+                            aria-label="Carregando logo"
+                            className="w-16 h-16 rounded-full bg-gray-200 shadow-sm border border-gray-300 animate-pulse flex-shrink-0"
+                        />
+                    ) : (
+                        <Image
+                            // Evita warnings de src vazio. Usa fallback garantido em /public/favicon/.
+                            key={(settings.logoUrl && settings.logoUrl.trim()) || 'default-logo'}
+                            src={(settings.logoUrl && settings.logoUrl.trim()) || '/favicon/android-chrome-192x192.png'}
+                            alt="Logo"
+                            width={64}
+                            height={64}
+                            className="rounded-full bg-gray-200 shadow-sm border border-gray-300 object-cover flex-shrink-0"
+                            priority
+                        />
+                    )}
+                    <div className="flex flex-col">
                         {/* MELHORIA: Efeito "skeleton" enquanto carrega */}
                         {loading ? (
                             <div className="space-y-2">
@@ -147,7 +154,7 @@ export default function Header() {
                         </span>
                         <span className="hidden sm:inline">{loading ? '...' : isOpen ? 'Aberto' : 'Fechado'}</span>
                     </motion.button>
-                     <button
+                    <button
                         className="ml-1 sm:ml-2 bg-white text-gray-600 p-2 sm:p-3 rounded-full shadow-sm hover:bg-gray-100 ring-1 ring-inset ring-gray-200 transition-colors flex items-center justify-center"
                         onClick={() => setShowInfo(true)}
                         aria-label="Informações do restaurante"
@@ -189,36 +196,36 @@ export default function Header() {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2 space-y-6">
                                     <section>
-                                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaClock className="text-purple-600"/> Horários</h3>
+                                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaClock className="text-purple-600" /> Horários</h3>
                                         <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-2 text-sm shadow-sm">
                                             {renderBusinessHours()}
                                         </div>
                                     </section>
-                                    
+
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <section>
-                                            <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaMapMarkerAlt className="text-purple-600"/> Endereço</h3>
+                                            <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaMapMarkerAlt className="text-purple-600" /> Endereço</h3>
                                             <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm shadow-sm">
                                                 <p className="font-medium text-gray-700">{settings.addressStreet || 'Rua Fictícia'}</p>
                                                 <p className="text-gray-500">{settings.addressCity || 'Cidade - UF'}</p>
                                             </div>
                                         </section>
                                         <section>
-                                            <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaMoneyBillWave className="text-purple-600"/> Pagamento</h3>
+                                            <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaMoneyBillWave className="text-purple-600" /> Pagamento</h3>
                                             <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm shadow-sm">
                                                 <p className="text-gray-600 leading-relaxed">{settings.paymentMethods || 'Cartão, PIX e dinheiro'}</p>
                                             </div>
                                         </section>
                                     </div>
-                                    
+
                                     <section>
-                                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaPhoneAlt className="text-purple-600"/> Contatos</h3>
+                                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaPhoneAlt className="text-purple-600" /> Contatos</h3>
                                         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm text-sm space-y-3">
                                             <a href={`tel:${settings.contactPhone}`} className="flex items-center gap-3 group">
-                                                <FaPhoneAlt className="text-gray-400 w-4 h-4"/>
+                                                <FaPhoneAlt className="text-gray-400 w-4 h-4" />
                                                 <div className="flex-1">
                                                     <p className="text-gray-500 text-xs">Telefone</p>
                                                     <p className="font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">{settings.contactPhone || '(00) 00000-0000'}</p>
@@ -226,39 +233,39 @@ export default function Header() {
                                             </a>
                                             {settings.socialMediaInstagram && (
                                                 <>
-                                                 <hr className="border-gray-100"/>
-                                                 <a href={`https://instagram.com/${settings.socialMediaInstagram.replace('@','')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 group">
-                                                    <FaInstagram className="text-gray-400 w-4 h-4"/>
-                                                    <div className="flex-1">
-                                                      <p className="text-gray-500 text-xs">Instagram</p>
-                                                      <p className="font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">{settings.socialMediaInstagram}</p>
-                                                    </div>
-                                                 </a>
+                                                    <hr className="border-gray-100" />
+                                                    <a href={`https://instagram.com/${settings.socialMediaInstagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 group">
+                                                        <FaInstagram className="text-gray-400 w-4 h-4" />
+                                                        <div className="flex-1">
+                                                            <p className="text-gray-500 text-xs">Instagram</p>
+                                                            <p className="font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">{settings.socialMediaInstagram}</p>
+                                                        </div>
+                                                    </a>
                                                 </>
                                             )}
                                             {settings.whatsappNumber && (
-                                                 <>
-                                                 <hr className="border-gray-100"/>
-                                                  <a href={`https://wa.me/${settings.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 group">
-                                                      <FaWhatsapp className="text-gray-400 w-4 h-4"/>
-                                                      <div className="flex-1">
-                                                          <p className="text-gray-500 text-xs">WhatsApp</p>
-                                                          <p className="font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">{settings.whatsappNumber}</p>
-                                                      </div>
-                                                  </a>
-                                                 </>
+                                                <>
+                                                    <hr className="border-gray-100" />
+                                                    <a href={`https://wa.me/${settings.whatsappNumber}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 group">
+                                                        <FaWhatsapp className="text-gray-400 w-4 h-4" />
+                                                        <div className="flex-1">
+                                                            <p className="text-gray-500 text-xs">WhatsApp</p>
+                                                            <p className="font-semibold text-gray-700 group-hover:text-purple-600 transition-colors">{settings.whatsappNumber}</p>
+                                                        </div>
+                                                    </a>
+                                                </>
                                             )}
                                         </div>
                                     </section>
-                                     <section>
-                                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaExclamationCircle className="text-purple-600"/> Outras Informações</h3>
+                                    <section>
+                                        <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2"><FaExclamationCircle className="text-purple-600" /> Outras Informações</h3>
                                         <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm shadow-sm">
                                             <p className="text-gray-500">CNPJ: {settings.cnpj || 'Não informado'}</p>
                                         </div>
                                     </section>
                                 </div>
                                 <div className="p-4 bg-white/80 backdrop-blur-sm border-t border-gray-200 sticky bottom-0">
-                                    <button onClick={()=> setShowInfo(false)} className="w-full text-base font-semibold px-4 py-3 rounded-xl bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition">Fechar</button>
+                                    <button onClick={() => setShowInfo(false)} className="w-full text-base font-semibold px-4 py-3 rounded-xl bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98] transition">Fechar</button>
                                 </div>
                             </motion.div>
                         </motion.div>

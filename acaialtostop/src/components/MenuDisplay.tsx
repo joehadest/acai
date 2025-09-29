@@ -1,7 +1,7 @@
 // src/components/MenuDisplay.tsx
 
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMenu } from '@/contexts/MenuContext';
 import ItemModal from './ItemModal';
@@ -72,11 +72,11 @@ export default function MenuDisplay() {
         fetchSettingsData();
     }, []);
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
-    const sectionMetaRef = useRef<{ value: string; el: HTMLElement; height: number; top: number; }[]>([]);
+    const stickyWrapperRef = useRef<HTMLDivElement>(null); // wrapper sticky para medir altura real
+    // Refs para a nova lógica de scroll
     const scrollingByClickRef = useRef(false);
     const lastSetRef = useRef<string | null>(null);
-    const rAFRef = useRef<number | null>(null);
-    const recomputeNeededRef = useRef(true);
+    const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const { isOpen, toggleOpen } = useMenu();
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
@@ -113,99 +113,96 @@ export default function MenuDisplay() {
         };
     }, [selectedItem, selectedPasta]);
 
-    const recomputeSectionMeta = () => {
-        sectionMetaRef.current = categories.map(cat => {
-            const el = document.getElementById(`category-${cat.value}`) as HTMLElement | null;
-            if (!el) return null;
-            const rect = el.getBoundingClientRect();
-            const top = rect.top + window.scrollY;
-            return { value: cat.value, el, height: el.offsetHeight, top };
-        }).filter(Boolean) as { value: string; el: HTMLElement; height: number; top: number; }[];
-        recomputeNeededRef.current = false;
-    };
 
-    useEffect(() => {
-        recomputeNeededRef.current = true;
-    }, [categories, menuItems]);
+    // CACHE dinâmico de posições + medição de header
+    const headerOffsetRef = useRef(0);
+    const sectionPositionsRef = useRef<{ value: string; top: number; bottom: number; height: number }[]>([]);
+    const recalcPositions = useCallback(() => {
+        // mede header
+        if (stickyWrapperRef.current) {
+            headerOffsetRef.current = stickyWrapperRef.current.getBoundingClientRect().height + 10; // margem de segurança
+        }
+        // coleta posições
+        const arr: { value: string; top: number; bottom: number; height: number }[] = [];
+        for (const cat of categories) {
+            const el = document.getElementById(`category-${cat.value}`);
+            if (el) {
+                const top = el.offsetTop;
+                const height = el.offsetHeight;
+                arr.push({ value: cat.value, top, height, bottom: top + height });
+            }
+        }
+        sectionPositionsRef.current = arr.sort((a, b) => a.top - b.top);
+    }, [categories]);
 
+    // Recalcular em eventos relevantes
     useEffect(() => {
         if (categories.length === 0) return;
-
-        const anchorRatio = 0.25;
-        const hysteresisAdvantage = 0.08;
-        const lockDuration = 650;
-        let lastCalc = 0;
-
-        const calcActive = () => {
-            rAFRef.current = null;
-            if (scrollingByClickRef.current) return;
-            if (recomputeNeededRef.current) recomputeSectionMeta();
-            if (sectionMetaRef.current.length === 0) return;
-
-            const viewportTop = window.scrollY;
-            const viewportH = window.innerHeight;
-            const anchorY = viewportTop + viewportH * anchorRatio;
-
-            let bestValue = sectionMetaRef.current[0].value;
-            let bestScore = -Infinity;
-
-            sectionMetaRef.current.forEach(meta => {
-                const { top, height } = meta;
-                const bottom = top + height;
-                const visible = Math.max(0, Math.min(bottom, viewportTop + viewportH) - Math.max(top, viewportTop));
-                if (visible <= 0) return;
-                const center = top + height / 2;
-                const dist = Math.abs(center - anchorY);
-                const normVis = visible / height;
-                const score = normVis - dist / 2000;
-                if (score > bestScore) {
-                    bestScore = score;
-                    bestValue = meta.value;
-                }
-            });
-
-            if (lastSetRef.current && lastSetRef.current !== bestValue) {
-                const prevMeta = sectionMetaRef.current.find(m => m.value === lastSetRef.current);
-                if (prevMeta) {
-                    const viewportTop2 = viewportTop;
-                    const viewportH2 = viewportH;
-                    const anchorY2 = anchorY;
-                    const top = prevMeta.top; const height = prevMeta.height; const bottom = top + height;
-                    const visible = Math.max(0, Math.min(bottom, viewportTop2 + viewportH2) - Math.max(top, viewportTop2));
-                    const center = top + height / 2;
-                    const dist = Math.abs(center - anchorY2);
-                    const prevScore = (visible / height) - dist / 2000;
-                    if (bestScore < prevScore + hysteresisAdvantage) {
-                        return;
-                    }
-                }
-            }
-
-            if (bestValue !== lastSetRef.current) {
-                lastSetRef.current = bestValue;
-                setSelectedCategory(bestValue);
-            }
+        recalcPositions();
+        const handleResize = () => {
+            // debounce simples (rAF + timeout)
+            requestAnimationFrame(() => recalcPositions());
         };
-
-        const onScroll = () => {
-            if (rAFRef.current) return;
-            rAFRef.current = requestAnimationFrame(calcActive);
-        };
-
-        const initTimeout = setTimeout(() => {
-            recomputeSectionMeta();
-            calcActive();
-        }, 200);
-
-        window.addEventListener('scroll', onScroll, { passive: true });
-        window.addEventListener('resize', () => { recomputeNeededRef.current = true; onScroll(); }, { passive: true });
-
+        window.addEventListener('resize', handleResize);
+        // fonts (caso suportado)
+        (document as any).fonts?.ready?.then(() => recalcPositions()).catch(() => { });
+        // pequeno atraso após load para elementos carregados async
+        const t = setTimeout(recalcPositions, 400);
         return () => {
-            window.removeEventListener('scroll', onScroll);
-            if (rAFRef.current) cancelAnimationFrame(rAFRef.current);
-            clearTimeout(initTimeout);
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(t);
         };
-    }, [categories, menuItems]);
+    }, [categories, recalcPositions, menuItems]);
+
+    // Scrollspy usando cache com linha de referência central (mais preciso)
+    useEffect(() => {
+        if (categories.length === 0) return;
+        let ticking = false;
+        const handleScroll = () => {
+            if (scrollingByClickRef.current) return;
+            if (!ticking) {
+                requestAnimationFrame(() => {
+                    const sections = sectionPositionsRef.current;
+                    if (sections.length === 0) { ticking = false; return; }
+                    const headerOffset = headerOffsetRef.current;
+                    const viewportHeight = window.innerHeight;
+                    // Linha de referência: centro da viewport ajustado pela altura do header (mantém contexto visual do usuário)
+                    const refLine = window.scrollY + headerOffset + (viewportHeight - headerOffset) / 2;
+
+                    // Preferimos a seção que contém a refLine; se nenhuma, usamos a última cujo topo passou acima da refLine
+                    let active = sections[0].value;
+                    for (let i = 0; i < sections.length; i++) {
+                        const s = sections[i];
+                        if (refLine >= s.top && refLine < s.bottom) { // refLine dentro
+                            active = s.value;
+                            break;
+                        }
+                        if (refLine >= s.top) {
+                            active = s.value; // continua até encontrar a que contém ou a última antes da linha
+                        } else {
+                            break;
+                        }
+                    }
+
+                    // Ajuste especial: perto do fim da página sempre força última (evita ficar preso na penúltima se a última for pequena)
+                    const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 8);
+                    if (nearBottom) {
+                        active = sections[sections.length - 1].value;
+                    }
+
+                    if (active !== lastSetRef.current) {
+                        lastSetRef.current = active;
+                        setSelectedCategory(active);
+                    }
+                    ticking = false;
+                });
+                ticking = true;
+            }
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [categories]);
+
 
     const refreshMenuData = async () => {
         try {
@@ -253,8 +250,9 @@ export default function MenuDisplay() {
                 if (data.success) {
                     const sorted = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
                     setCategories(sorted);
-                    if (sorted.length > 0) {
+                    if (sorted.length > 0 && !selectedCategory) {
                         setSelectedCategory(sorted[0].value);
+                        lastSetRef.current = sorted[0].value;
                     }
                 } else {
                     setCatError(data.error || 'Falha ao buscar categorias.');
@@ -290,15 +288,10 @@ export default function MenuDisplay() {
         return () => clearInterval(interval);
     }, []);
 
-    // MELHORIA: Lógica de rolagem da categoria simplificada para sempre centralizar com animação.
     useEffect(() => {
         if (!selectedCategory || !categoriesContainerRef.current) return;
         const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`) as HTMLElement | null;
         if (!btn) return;
-
-        // A lógica de `scrollingByClickRef` no handler de clique já previne
-        // que o scrollspy (rolagem automática) interfira durante o scroll iniciado pelo clique do usuário.
-        // Portanto, podemos sempre chamar a rolagem suave aqui.
         btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     }, [selectedCategory]);
 
@@ -329,36 +322,26 @@ export default function MenuDisplay() {
         };
     }, [tipoEntrega]);
 
-
-    const handleCategoryClick = (category: string | null) => {
+    // Clique da categoria com lock controlado até término da rolagem suave
+    const handleCategoryClick = (category: string) => {
+        const element = document.getElementById(`category-${category}`);
+        if (!element) return;
+        scrollingByClickRef.current = true;
         setSelectedCategory(category);
         lastSetRef.current = category;
-        const releaseLock = (delay = 450) => setTimeout(() => { scrollingByClickRef.current = false; }, delay);
-        if (category) {
-            const element = document.getElementById(`category-${category}`);
-            if (element) {
-                const offset = 140;
-                const target = Math.max(0, element.offsetTop - offset);
-                const startY = window.scrollY;
-                scrollingByClickRef.current = true;
-                window.scrollTo({ top: target, behavior: 'smooth' });
-                const onWheel = (e: WheelEvent) => {
-                    const goingUp = e.deltaY < 0;
-                    const wantDown = target > startY;
-                    const wantUp = target < startY;
-                    if ((goingUp && wantDown) || (!goingUp && wantUp)) {
-                        scrollingByClickRef.current = false;
-                        window.removeEventListener('wheel', onWheel);
-                    }
-                };
-                window.addEventListener('wheel', onWheel, { passive: true });
-                releaseLock();
-            }
-        } else {
-            scrollingByClickRef.current = true;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            releaseLock();
-        }
+        const targetPosition = element.offsetTop - headerOffsetRef.current;
+        window.scrollTo({ top: targetPosition, behavior: 'smooth' });
+        let attempts = 0;
+        const maxAttempts = 60;
+        const release = () => { scrollingByClickRef.current = false; };
+        const check = () => {
+            if (Math.abs(window.scrollY - targetPosition) < 2 || attempts++ > maxAttempts) return release();
+            requestAnimationFrame(check);
+        };
+        const releaseOnUser = () => { release(); window.removeEventListener('wheel', releaseOnUser); window.removeEventListener('touchstart', releaseOnUser); };
+        window.addEventListener('wheel', releaseOnUser, { once: true, passive: true });
+        window.addEventListener('touchstart', releaseOnUser, { once: true, passive: true });
+        requestAnimationFrame(check);
     };
 
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
@@ -425,7 +408,7 @@ export default function MenuDisplay() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-gray-100">
-            <div className="sticky top-24 z-40">
+            <div ref={stickyWrapperRef} className="sticky top-24 z-40">
                 <div className="bg-white/90 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm">
                     <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
                         <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300/70 to-transparent" />
@@ -445,8 +428,8 @@ export default function MenuDisplay() {
                                             onClick={() => handleCategoryClick(category.value)}
                                             whileTap={{ scale: 0.94 }}
                                             className={`group relative flex-shrink-0 whitespace-nowrap text-xs sm:text-sm font-semibold tracking-wide px-4 py-2 rounded-full transition-all duration-200 border ${active
-                                                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                                                    : 'bg-white border-gray-200 text-gray-700 hover:text-purple-600 hover:border-purple-300'
+                                                ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                                                : 'bg-white border-gray-200 text-gray-700 hover:text-purple-600 hover:border-purple-300'
                                                 }`}
                                         >
                                             <span>{category.label}</span>
