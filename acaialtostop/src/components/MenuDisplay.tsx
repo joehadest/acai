@@ -72,7 +72,7 @@ export default function MenuDisplay() {
         fetchSettingsData();
     }, []);
     const categoriesContainerRef = useRef<HTMLDivElement>(null);
-    const sectionMetaRef = useRef<{value:string; el: HTMLElement; height: number; top: number;}[]>([]);
+    const sectionMetaRef = useRef<{ value: string; el: HTMLElement; height: number; top: number; }[]>([]);
     const scrollingByClickRef = useRef(false);
     const lastSetRef = useRef<string | null>(null);
     const rAFRef = useRef<number | null>(null);
@@ -120,7 +120,7 @@ export default function MenuDisplay() {
             const rect = el.getBoundingClientRect();
             const top = rect.top + window.scrollY;
             return { value: cat.value, el, height: el.offsetHeight, top };
-        }).filter(Boolean) as {value:string; el: HTMLElement; height: number; top: number;}[];
+        }).filter(Boolean) as { value: string; el: HTMLElement; height: number; top: number; }[];
         recomputeNeededRef.current = false;
     };
 
@@ -337,7 +337,7 @@ export default function MenuDisplay() {
         if (category) {
             const element = document.getElementById(`category-${category}`);
             if (element) {
-                const offset = 140; 
+                const offset = 140;
                 const target = Math.max(0, element.offsetTop - offset);
                 const startY = window.scrollY;
                 scrollingByClickRef.current = true;
@@ -360,7 +360,7 @@ export default function MenuDisplay() {
             releaseLock();
         }
     };
-    
+
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
     useEffect(() => {
@@ -389,7 +389,7 @@ export default function MenuDisplay() {
         setIsCartOpen(false);
         clearCart();
     };
-    
+
     const handleAddToCart = (item: MenuItem, quantity: number, unitPrice: number, observation: string, size?: string, border?: string, extras?: string[], flavors?: string[]) => {
         addToCart(item, quantity, unitPrice, observation, size, border, extras, flavors);
         setSelectedItem(null);
@@ -426,57 +426,56 @@ export default function MenuDisplay() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-gray-100">
             <div className="sticky top-24 z-40">
-                            <div className="bg-white/90 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm"> 
-                                <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
-                                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300/70 to-transparent" />
-                                    <motion.div
-                                        ref={categoriesContainerRef}
-                                        className="flex gap-2 overflow-x-auto py-2 no-scrollbar"
-                                        style={{ WebkitOverflowScrolling: 'touch' }}
-                                    >
-                                        {categories
-                                            .filter(category => category.value !== 'all' && category.value !== 'todas')
-                                            .map(category => {
-                                                const active = selectedCategory === category.value;
-                                                return (
-                                                    <motion.button
-                                                        key={category.value}
-                                                        data-category={category.value}
-                                                        onClick={() => handleCategoryClick(category.value)}
-                                                        whileTap={{ scale: 0.94 }}
-                                                        className={`group relative flex-shrink-0 whitespace-nowrap text-xs sm:text-sm font-semibold tracking-wide px-4 py-2 rounded-full transition-all duration-200 border ${
-                                                            active
-                                                                ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                                                                : 'bg-white border-gray-200 text-gray-700 hover:text-purple-600 hover:border-purple-300'
-                                                        }`}
-                                                    >
-                                                        <span>{category.label}</span>
-                                                        {active && (
-                                                            <motion.span
-                                                                layoutId="catGlow"
-                                                                className="absolute inset-0 -z-10 rounded-full bg-purple-600/30 blur-lg"
-                                                                transition={{type: "spring", stiffness: 300, damping: 30}}
-                                                            />
-                                                        )}
-                                                    </motion.button>
-                                                );
-                                            })}
-                                    </motion.div>
-                                </div>
-                            </div>
+                <div className="bg-white/90 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm">
+                    <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
+                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300/70 to-transparent" />
+                        <motion.div
+                            ref={categoriesContainerRef}
+                            className="flex gap-2 overflow-x-auto py-2 no-scrollbar"
+                            style={{ WebkitOverflowScrolling: 'touch' }}
+                        >
+                            {categories
+                                .filter(category => category.value !== 'all' && category.value !== 'todas')
+                                .map(category => {
+                                    const active = selectedCategory === category.value;
+                                    return (
+                                        <motion.button
+                                            key={category.value}
+                                            data-category={category.value}
+                                            onClick={() => handleCategoryClick(category.value)}
+                                            whileTap={{ scale: 0.94 }}
+                                            className={`group relative flex-shrink-0 whitespace-nowrap text-xs sm:text-sm font-semibold tracking-wide px-4 py-2 rounded-full transition-all duration-200 border ${active
+                                                    ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                                                    : 'bg-white border-gray-200 text-gray-700 hover:text-purple-600 hover:border-purple-300'
+                                                }`}
+                                        >
+                                            <span>{category.label}</span>
+                                            {active && (
+                                                <motion.span
+                                                    layoutId="catGlow"
+                                                    className="absolute inset-0 -z-10 rounded-full bg-purple-600/30 blur-lg"
+                                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                                />
+                                            )}
+                                        </motion.button>
+                                    );
+                                })}
+                        </motion.div>
+                    </div>
+                </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-4 pb-24">
                 <div className="space-y-12">
                     {categories.map(category => (
-                                                <div key={category.value} id={`category-${category.value}`} className="space-y-5 scroll-mt-36">
-                                                        <div className="flex items-center gap-3">
-                                                            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 capitalize tracking-tight relative">
-                                                                <span className="bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">{category.label}</span>
-                                                            </h2>
-                                                            <div className="flex-1 h-px bg-gradient-to-r from-purple-300/40 via-gray-200 to-transparent" />
-                                                        </div>
-                                                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
+                        <div key={category.value} id={`category-${category.value}`} className="space-y-5 scroll-mt-36">
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 capitalize tracking-tight relative">
+                                    <span className="bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">{category.label}</span>
+                                </h2>
+                                <div className="flex-1 h-px bg-gradient-to-r from-purple-300/40 via-gray-200 to-transparent" />
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-6">
                                 {menuItems
                                     .filter(item => item.category === category.value)
                                     .map((item) => (
