@@ -15,6 +15,10 @@
     color: rgb(var(--foreground-rgb));
     background: rgb(var(--background-rgb));
   }
+
+  .overscroll-contain {
+    overscroll-behavior-y: contain;
+  }
 }
 
 @layer components {
@@ -45,3 +49,5 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
 }
+
+/* As regras de overflow que quebravam o 'sticky' foram removidas */

@@ -9,6 +9,8 @@ interface MenuContextType {
     status: RestaurantStatus | null;
     loading: boolean;
     error: string | null;
+    isHeaderVisible: boolean;
+    setIsHeaderVisible: (visible: boolean) => void;
 }
 
 // --- CORREÇÃO 1: Exportar o Context ---
@@ -19,6 +21,7 @@ export function MenuProvider({ children }: { children: ReactNode }) {
     const [status, setStatus] = useState<RestaurantStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [isHeaderVisible, setIsHeaderVisible] = useState(true);
 
     const toggleOpen = () => {
         setIsOpen(prev => !prev);
@@ -30,7 +33,9 @@ export function MenuProvider({ children }: { children: ReactNode }) {
         toggleOpen,
         status,
         loading,
-        error
+        error,
+        isHeaderVisible,
+        setIsHeaderVisible
     };
 
     return (

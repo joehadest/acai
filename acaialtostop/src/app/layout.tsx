@@ -58,12 +58,12 @@ export default function RootLayout({
                 <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
                 {/* ... (o head continua o mesmo) ... */}
             </head>
-      <body className="bg-gray-100 min-h-screen m-0">
+      <body className="bg-gray-100 min-h-screen m-0 overscroll-contain">
         <ConditionalHeader />
         <Providers>
-          <main className="min-h-screen">
-            {children}
-          </main>
+            <main className="min-h-screen">
+              {children}
+            </main>
         </Providers>
       </body>
     </html>

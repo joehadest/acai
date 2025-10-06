@@ -1,374 +1,168 @@
 // src/components/MenuDisplay.tsx
 
 'use client';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMenu } from '@/contexts/MenuContext';
 import ItemModal from './ItemModal';
 import Cart from './Cart';
 import { MenuItem } from '@/types/menu';
 import Image from 'next/image';
-import { FaExclamationCircle, FaWhatsapp, FaShare } from 'react-icons/fa';
 import { useCart } from '../contexts/CartContext';
-import { CartItem } from '../types/cart';
-import PastaModal from './PastaModal';
 import { isRestaurantOpen as checkRestaurantOpen } from '../utils/timeUtils';
 import type { BusinessHoursConfig } from '../utils/timeUtils';
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.1
-        }
-    }
-};
+// Hook com alta precisão para observar a categoria visível (CORRIGIDO)
+function useVisibleCategory(categories: { value: string }[]) {
+    const [visibleCategory, setVisibleCategory] = React.useState<string | null>(null);
+    const observerRef = React.useRef<IntersectionObserver | null>(null);
+    const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
 
-const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        transition: {
-            type: "spring",
-            stiffness: 100
+    React.useEffect(() => {
+        // Define a primeira categoria como padrão na montagem inicial
+        if (categories.length > 0 && !visibleCategory) {
+            setVisibleCategory(categories[0].value);
         }
-    }
-};
+    }, [categories]);
 
-const categoryVariants = {
-    hidden: { opacity: 0, x: -20 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        transition: {
-            type: "spring",
-            stiffness: 100
+    React.useEffect(() => {
+        if (observerRef.current) {
+            observerRef.current.disconnect();
         }
-    }
-};
+
+        observerRef.current = new IntersectionObserver(
+            (entries) => {
+                // Encontra a entrada mais visível que está mais acima na tela
+                const topVisibleEntry = entries
+                    .filter(entry => entry.isIntersecting)
+                    .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+
+                if (topVisibleEntry) {
+                    const newCategory = topVisibleEntry.target.id.replace('category-', '');
+
+                    // Debounce para evitar atualizações rápidas durante o scroll
+                    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+                    debounceRef.current = setTimeout(() => {
+                        setVisibleCategory(newCategory);
+                    }, 150); // Atraso de 150ms para estabilizar
+                }
+            },
+            {
+                rootMargin: '-80px 0px -50% 0px', // Área de deteção otimizada para o topo
+                threshold: 0,
+            }
+        );
+
+        const elements = categories.map(category => document.getElementById(`category-${category.value}`)).filter(Boolean);
+        elements.forEach(element => observerRef.current!.observe(element!));
+
+        return () => {
+            if (observerRef.current) {
+                observerRef.current.disconnect();
+            }
+            if (debounceRef.current) {
+                clearTimeout(debounceRef.current);
+            }
+        };
+    }, [categories]); // Recria o observador apenas se a lista de categorias mudar
+
+    return visibleCategory;
+}
+
 
 export default function MenuDisplay() {
-    const [allowHalfAndHalf, setAllowHalfAndHalf] = useState(true);
-    const [deliveryFees, setDeliveryFees] = useState<{ neighborhood: string; fee: number }[]>([]);
-    const [selectedPasta, setSelectedPasta] = useState<MenuItem | null>(null);
-    const [showCategoriesModal, setShowCategoriesModal] = useState(false);
-    const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
-
-    useEffect(() => {
-        async function fetchSettingsData() {
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data) {
-                    setDeliveryFees(data.data.deliveryFees || []);
-                    setAllowHalfAndHalf(data.data.allowHalfAndHalf === true);
-                }
-            } catch (err) {
-                // erro silencioso
-            }
-        }
-        fetchSettingsData();
-    }, []);
-    const categoriesContainerRef = useRef<HTMLDivElement>(null);
-    const stickyWrapperRef = useRef<HTMLDivElement>(null); // wrapper sticky para medir altura real
-    // Refs para a nova lógica de scroll
-    const scrollingByClickRef = useRef(false);
-    const lastSetRef = useRef<string | null>(null);
-    const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-    const { isOpen, toggleOpen } = useMenu();
+    const [allowHalfAndHalf, setAllowHalfAndHalf] = React.useState(true);
+    const [deliveryFees, setDeliveryFees] = React.useState<{ neighborhood: string; fee: number }[]>([]);
+    const [isRestaurantOpen, setIsRestaurantOpen] = React.useState(true);
+    const categoriesContainerRef = React.useRef<HTMLDivElement>(null);
     const { items: cartItems, addToCart, removeFromCart, updateQuantity, clearCart } = useCart();
-    const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-    const [isCartOpen, setIsCartOpen] = useState(false);
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [orderSuccessId, setOrderSuccessId] = useState<string | null>(null);
-    const [showInfo, setShowInfo] = useState(false);
-    const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
-    const [orderDetails, setOrderDetails] = useState<CartItem[]>([]);
-    const [formaPagamento, setFormaPagamento] = useState<string>('');
-    const [showNotifications, setShowNotifications] = useState(false);
-    const [tipoEntrega, setTipoEntrega] = useState<'entrega' | 'retirada'>('entrega');
+    const [selectedItem, setSelectedItem] = React.useState<MenuItem | null>(null);
+    const [isCartOpen, setIsCartOpen] = React.useState(false);
+    const [menuItems, setMenuItems] = React.useState<MenuItem[]>([]);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
+    const [categories, setCategories] = React.useState<{ _id?: string, value: string, label: string, allowHalfAndHalf?: boolean }[]>([]);
+    const visibleCategory = useVisibleCategory(categories);
+    const scrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+    
+    // Efeito para rolar a barra de categorias e manter o item ativo visível
+    React.useEffect(() => {
+        if (visibleCategory && categoriesContainerRef.current) {
+            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
 
-    const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [categories, setCategories] = useState<{ _id?: string, value: string, label: string, allowHalfAndHalf?: boolean }[]>([]);
-    const [catLoading, setCatLoading] = useState(false);
-    const [catError, setCatError] = useState('');
-    const [menuTitle, setMenuTitle] = useState("");
-    const [menuSubtitle, setMenuSubtitle] = useState("");
-    const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-
-    useEffect(() => {
-        const isModalOpen = selectedItem !== null || selectedPasta !== null;
-        if (isModalOpen) {
-            document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'auto';
+            scrollTimeoutRef.current = setTimeout(() => {
+                const activeButton = categoriesContainerRef.current?.querySelector(`[data-category-value="${visibleCategory}"]`) as HTMLElement;
+                if (activeButton && categoriesContainerRef.current) {
+                    const container = categoriesContainerRef.current;
+                    const containerRect = container.getBoundingClientRect();
+                    const buttonRect = activeButton.getBoundingClientRect();
+                    
+                    const isButtonVisible = buttonRect.left >= containerRect.left && buttonRect.right <= containerRect.right;
+                    
+                    if (!isButtonVisible) {
+                        const scrollOffset = (buttonRect.left + buttonRect.width / 2) - (containerRect.left + containerRect.width / 2);
+                        container.scrollBy({ left: scrollOffset, behavior: 'smooth' });
+                    }
+                }
+            }, 150);
         }
+
         return () => {
-            document.body.style.overflow = 'auto';
+            if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
         };
-    }, [selectedItem, selectedPasta]);
+    }, [visibleCategory]);
 
-
-    // CACHE dinâmico de posições + medição de header
-    const headerOffsetRef = useRef(0);
-    const sectionPositionsRef = useRef<{ value: string; top: number; bottom: number; height: number }[]>([]);
-    const recalcPositions = useCallback(() => {
-        // mede header
-        if (stickyWrapperRef.current) {
-            headerOffsetRef.current = stickyWrapperRef.current.getBoundingClientRect().height + 10; // margem de segurança
-        }
-        // coleta posições
-        const arr: { value: string; top: number; bottom: number; height: number }[] = [];
-        for (const cat of categories) {
-            const el = document.getElementById(`category-${cat.value}`);
-            if (el) {
-                const top = el.offsetTop;
-                const height = el.offsetHeight;
-                arr.push({ value: cat.value, top, height, bottom: top + height });
-            }
-        }
-        sectionPositionsRef.current = arr.sort((a, b) => a.top - b.top);
-    }, [categories]);
-
-    // Recalcular em eventos relevantes
-    useEffect(() => {
-        if (categories.length === 0) return;
-        recalcPositions();
-        const handleResize = () => {
-            // debounce simples (rAF + timeout)
-            requestAnimationFrame(() => recalcPositions());
-        };
-        window.addEventListener('resize', handleResize);
-        // fonts (caso suportado)
-        (document as any).fonts?.ready?.then(() => recalcPositions()).catch(() => { });
-        // pequeno atraso após load para elementos carregados async
-        const t = setTimeout(recalcPositions, 400);
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            clearTimeout(t);
-        };
-    }, [categories, recalcPositions, menuItems]);
-
-    // Scrollspy usando cache com linha de referência central (mais preciso)
-    useEffect(() => {
-        if (categories.length === 0) return;
-        let ticking = false;
-        const handleScroll = () => {
-            if (scrollingByClickRef.current) return;
-            if (!ticking) {
-                requestAnimationFrame(() => {
-                    const sections = sectionPositionsRef.current;
-                    if (sections.length === 0) { ticking = false; return; }
-                    const headerOffset = headerOffsetRef.current;
-                    const viewportHeight = window.innerHeight;
-                    // Linha de referência: centro da viewport ajustado pela altura do header (mantém contexto visual do usuário)
-                    const refLine = window.scrollY + headerOffset + (viewportHeight - headerOffset) / 2;
-
-                    // Preferimos a seção que contém a refLine; se nenhuma, usamos a última cujo topo passou acima da refLine
-                    let active = sections[0].value;
-                    for (let i = 0; i < sections.length; i++) {
-                        const s = sections[i];
-                        if (refLine >= s.top && refLine < s.bottom) { // refLine dentro
-                            active = s.value;
-                            break;
-                        }
-                        if (refLine >= s.top) {
-                            active = s.value; // continua até encontrar a que contém ou a última antes da linha
-                        } else {
-                            break;
-                        }
-                    }
-
-                    // Ajuste especial: perto do fim da página sempre força última (evita ficar preso na penúltima se a última for pequena)
-                    const nearBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 8);
-                    if (nearBottom) {
-                        active = sections[sections.length - 1].value;
-                    }
-
-                    if (active !== lastSetRef.current) {
-                        lastSetRef.current = active;
-                        setSelectedCategory(active);
-                    }
-                    ticking = false;
-                });
-                ticking = true;
-            }
-        };
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [categories]);
-
-
-    const refreshMenuData = async () => {
-        try {
-            const response = await fetch('/api/menu');
-            const data = await response.json();
-            if (data.success) {
-                setMenuItems(data.data);
-                setLastUpdate(new Date());
-                setError(null);
-            } else {
-                setError('Erro ao atualizar o cardápio');
-            }
-        } catch (error) {
-            console.error('Erro ao atualizar menu:', error);
-            setError('Erro ao conectar com o servidor');
-        }
-    };
-
-    useEffect(() => {
-        const fetchMenuItems = async () => {
+    React.useEffect(() => {
+        async function fetchInitialData() {
             try {
                 setLoading(true);
-                const response = await fetch('/api/menu');
-                const data = await response.json();
-                if (data.success) {
-                    setMenuItems(data.data);
-                    setLastUpdate(new Date());
+                const [menuRes, catRes, settingsRes] = await Promise.all([
+                    fetch('/api/menu'),
+                    fetch('/api/categories'),
+                    fetch('/api/settings'),
+                ]);
+
+                const menuData = await menuRes.json();
+                if (menuData.success) setMenuItems(menuData.data);
+                else setError('Erro ao carregar o cardápio');
+
+                const catData = await catRes.json();
+                if (catData.success) {
+                    const sorted = (catData.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
+                    setCategories(sorted);
                 } else {
-                    setError('Erro ao carregar o cardápio');
+                    setError(prev => prev ? prev + ' e categorias.' : 'Erro ao carregar categorias.');
                 }
-            } catch (error) {
-                console.error('Erro ao carregar menu:', error);
-                setError('Erro ao conectar com o servidor');
+
+                const settingsData = await settingsRes.json();
+                if (settingsData.success && settingsData.data) {
+                    setDeliveryFees(settingsData.data.deliveryFees || []);
+                    setAllowHalfAndHalf(settingsData.data.allowHalfAndHalf === true);
+                    if (settingsData.data.businessHours) {
+                        setIsRestaurantOpen(checkRestaurantOpen(settingsData.data.businessHours as BusinessHoursConfig));
+                    }
+                }
+            } catch (err) {
+                setError('Erro de conexão. Não foi possível carregar os dados.');
             } finally {
                 setLoading(false);
             }
-        };
-
-        const fetchCategories = async () => {
-            setCatLoading(true);
-            setCatError('');
-            try {
-                const res = await fetch('/api/categories');
-                const data = await res.json();
-                if (data.success) {
-                    const sorted = (data.data || []).slice().sort((a: { order?: number }, b: { order?: number }) => (a.order ?? 0) - (b.order ?? 0));
-                    setCategories(sorted);
-                    if (sorted.length > 0 && !selectedCategory) {
-                        setSelectedCategory(sorted[0].value);
-                        lastSetRef.current = sorted[0].value;
-                    }
-                } else {
-                    setCatError(data.error || 'Falha ao buscar categorias.');
-                }
-            } catch (err) {
-                setCatError('Falha ao buscar categorias.');
-            } finally {
-                setCatLoading(false);
-            }
-        };
-
-        const fetchSettings = async () => {
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data) {
-                    setMenuTitle(data.data.menuTitle || "");
-                    setMenuSubtitle(data.data.menuSubtitle || "");
-                }
-            } catch { }
-        };
-
-        fetchMenuItems();
-        fetchCategories();
-        fetchSettings();
-    }, []);
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            refreshMenuData();
-        }, 30000);
-
-        return () => clearInterval(interval);
-    }, []);
-
-    useEffect(() => {
-        if (!selectedCategory || !categoriesContainerRef.current) return;
-        const btn = categoriesContainerRef.current.querySelector(`[data-category="${selectedCategory}"]`) as HTMLElement | null;
-        if (!btn) return;
-        btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }, [selectedCategory]);
-
-    useEffect(() => {
-        const savedTipoEntrega = localStorage.getItem('tipoEntrega') as 'entrega' | 'retirada';
-        if (savedTipoEntrega) {
-            setTipoEntrega(savedTipoEntrega);
         }
+        fetchInitialData();
+    }, []);
 
-        const handleStorageChange = () => {
-            const newTipoEntrega = localStorage.getItem('tipoEntrega') as 'entrega' | 'retirada';
-            if (newTipoEntrega) {
-                setTipoEntrega(newTipoEntrega);
-            }
-        };
-
-        window.addEventListener('storage', handleStorageChange);
-        const interval = setInterval(() => {
-            const currentTipoEntrega = localStorage.getItem('tipoEntrega') as 'entrega' | 'retirada';
-            if (currentTipoEntrega && currentTipoEntrega !== tipoEntrega) {
-                setTipoEntrega(currentTipoEntrega);
-            }
-        }, 1000);
-
-        return () => {
-            window.removeEventListener('storage', handleStorageChange);
-            clearInterval(interval);
-        };
-    }, [tipoEntrega]);
-
-    // Clique da categoria com lock controlado até término da rolagem suave
-    const handleCategoryClick = (category: string) => {
-        const element = document.getElementById(`category-${category}`);
-        if (!element) return;
-        scrollingByClickRef.current = true;
-        setSelectedCategory(category);
-        lastSetRef.current = category;
-        const targetPosition = element.offsetTop - headerOffsetRef.current;
-        window.scrollTo({ top: targetPosition, behavior: 'smooth' });
-        let attempts = 0;
-        const maxAttempts = 60;
-        const release = () => { scrollingByClickRef.current = false; };
-        const check = () => {
-            if (Math.abs(window.scrollY - targetPosition) < 2 || attempts++ > maxAttempts) return release();
-            requestAnimationFrame(check);
-        };
-        const releaseOnUser = () => { release(); window.removeEventListener('wheel', releaseOnUser); window.removeEventListener('touchstart', releaseOnUser); };
-        window.addEventListener('wheel', releaseOnUser, { once: true, passive: true });
-        window.addEventListener('touchstart', releaseOnUser, { once: true, passive: true });
-        requestAnimationFrame(check);
+    const handleCategoryClick = (categoryValue: string) => {
+        const element = document.getElementById(`category-${categoryValue}`);
+        const offset = 80;
+        if (element) {
+            const elementPosition = element.getBoundingClientRect().top + window.pageYOffset - offset;
+            window.scrollTo({ top: elementPosition, behavior: 'smooth' });
+        }
     };
-
+    
     const allPizzas = menuItems.filter(item => item.category === 'pizzas');
 
-    useEffect(() => {
-        async function fetchDeliveryFees() {
-            try {
-                const res = await fetch('/api/settings');
-                const data = await res.json();
-                if (data.success && data.data) {
-                    setDeliveryFees(data.data.deliveryFees || []);
-                    if (data.data.businessHours) {
-                        const restaurantStatus = checkRestaurantOpen(data.data.businessHours as BusinessHoursConfig);
-                        setIsRestaurantOpen(restaurantStatus);
-                    } else {
-                        setIsRestaurantOpen(false);
-                    }
-                }
-            } catch (err) {
-                setIsRestaurantOpen(false);
-            }
-        }
-        fetchDeliveryFees();
-    }, []);
-
     const handleCheckout = (orderId: string) => {
-        setOrderSuccessId(orderId);
         setIsCartOpen(false);
         clearCart();
     };
@@ -377,22 +171,6 @@ export default function MenuDisplay() {
         addToCart(item, quantity, unitPrice, observation, size, border, extras, flavors);
         setSelectedItem(null);
         setIsCartOpen(true);
-    };
-
-    const handlePastaClick = (item: MenuItem) => {
-        setSelectedPasta(item);
-    };
-
-    const handlePastaClose = () => {
-        setSelectedPasta(null);
-    };
-
-    const handlePastaAddToCart = (quantity: number, observation: string, size?: 'P' | 'G') => {
-        if (selectedPasta) {
-            const unitPrice = selectedPasta.sizes?.[size || 'P'] || selectedPasta.price;
-            addToCart(selectedPasta, quantity, unitPrice, observation, size, undefined, undefined, undefined);
-            setSelectedPasta(null);
-        }
     };
 
     if (loading) {
@@ -405,45 +183,33 @@ export default function MenuDisplay() {
             </div>
         );
     }
+    
+    if (error) {
+        return <div className="text-center text-red-500 p-4">{error}</div>;
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-100 via-gray-50 to-gray-100">
-            <div ref={stickyWrapperRef} className="sticky top-24 z-40">
-                <div className="bg-white/90 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm">
-                    <div className="max-w-7xl mx-auto px-3 sm:px-4 relative">
-                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-300/70 to-transparent" />
-                        <motion.div
-                            ref={categoriesContainerRef}
-                            className="flex gap-2 overflow-x-auto py-2 no-scrollbar"
-                            style={{ WebkitOverflowScrolling: 'touch' }}
-                        >
-                            {categories
-                                .filter(category => category.value !== 'all' && category.value !== 'todas')
-                                .map(category => {
-                                    const active = selectedCategory === category.value;
-                                    return (
-                                        <motion.button
-                                            key={category.value}
-                                            data-category={category.value}
-                                            onClick={() => handleCategoryClick(category.value)}
-                                            whileTap={{ scale: 0.94 }}
-                                            className={`group relative flex-shrink-0 whitespace-nowrap text-xs sm:text-sm font-semibold tracking-wide px-4 py-2 rounded-full transition-all duration-200 border ${active
-                                                ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                                                : 'bg-white border-gray-200 text-gray-700 hover:text-purple-600 hover:border-purple-300'
-                                                }`}
-                                        >
-                                            <span>{category.label}</span>
-                                            {active && (
-                                                <motion.span
-                                                    layoutId="catGlow"
-                                                    className="absolute inset-0 -z-10 rounded-full bg-purple-600/30 blur-lg"
-                                                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                                                />
-                                            )}
-                                        </motion.button>
-                                    );
-                                })}
-                        </motion.div>
+            <div className="sticky top-0 bg-white/90 backdrop-blur-sm py-2 mb-4 border-b border-gray-200 shadow-sm z-30">
+                <div className="max-w-7xl mx-auto px-3 sm:px-4">
+                    <div ref={categoriesContainerRef} className="flex gap-2 overflow-x-auto py-2 no-scrollbar">
+                        {categories.map(category => {
+                            const isActive = visibleCategory === category.value;
+                            return (
+                                <button
+                                    key={category.value}
+                                    data-category-value={category.value}
+                                    onClick={() => handleCategoryClick(category.value)}
+                                    className={`flex-shrink-0 whitespace-nowrap text-xs sm:text-sm font-semibold tracking-wide px-4 py-2 rounded-full transition-all duration-300 border ${
+                                        isActive
+                                            ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                                            : 'bg-white border-transparent text-gray-700 hover:text-purple-600'
+                                    }`}
+                                >
+                                    {category.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -451,9 +217,9 @@ export default function MenuDisplay() {
             <div className="max-w-7xl mx-auto px-4 pb-24">
                 <div className="space-y-12">
                     {categories.map(category => (
-                        <div key={category.value} id={`category-${category.value}`} className="space-y-5 scroll-mt-36">
+                        <div key={category.value} id={`category-${category.value}`} className="space-y-5 scroll-mt-24">
                             <div className="flex items-center gap-3">
-                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 capitalize tracking-tight relative">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 capitalize tracking-tight">
                                     <span className="bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">{category.label}</span>
                                 </h2>
                                 <div className="flex-1 h-px bg-gradient-to-r from-purple-300/40 via-gray-200 to-transparent" />
@@ -500,6 +266,7 @@ export default function MenuDisplay() {
                         </div>
                     ))}
                 </div>
+                
                 <AnimatePresence>
                     {selectedItem && (
                         <ItemModal
@@ -508,13 +275,6 @@ export default function MenuDisplay() {
                             onAddToCart={handleAddToCart}
                             allPizzas={allPizzas}
                             categories={categories}
-                        />
-                    )}
-                    {selectedPasta && (
-                        <PastaModal
-                            item={selectedPasta}
-                            onClose={handlePastaClose}
-                            onAddToCart={handlePastaAddToCart}
                         />
                     )}
                     {isCartOpen && (

@@ -94,7 +94,9 @@ export default function Header() {
     };
 
     return (
-        <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-50 sticky top-0">
+        <header 
+            className="bg-white/95 backdrop-blur-sm border-b border-gray-200 z-40 w-full"
+        >
             <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 h-24 flex justify-between items-center">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
@@ -108,7 +110,6 @@ export default function Header() {
                         />
                     ) : (
                         <Image
-                            // Evita warnings de src vazio. Usa fallback garantido em /public/favicon/.
                             key={(settings.logoUrl && settings.logoUrl.trim()) || 'default-logo'}
                             src={(settings.logoUrl && settings.logoUrl.trim()) || '/favicon/android-chrome-192x192.png'}
                             alt="Logo"
@@ -119,7 +120,6 @@ export default function Header() {
                         />
                     )}
                     <div className="flex flex-col">
-                        {/* MELHORIA: Efeito "skeleton" enquanto carrega */}
                         {loading ? (
                             <div className="space-y-2">
                                 <div className="h-5 bg-gray-200 rounded w-32 animate-pulse"></div>
@@ -172,7 +172,7 @@ export default function Header() {
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             transition={{ duration: 0.25 }}
-                            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+                            className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
                             onClick={() => setShowInfo(false)}
                         >
                             <motion.div
