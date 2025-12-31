@@ -11,12 +11,18 @@ import WhatsAppModal from './WhatsAppModal';
 // Hook para detectar se a tela é de um dispositivo móvel
 const useIsMobile = () => {
     const [isMobile, setIsMobile] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    
     useEffect(() => {
+        setMounted(true);
         const checkScreenSize = () => setIsMobile(window.innerWidth < 768); // Tailwind 'md' breakpoint
         checkScreenSize();
         window.addEventListener('resize', checkScreenSize);
         return () => window.removeEventListener('resize', checkScreenSize);
     }, []);
+    
+    // Retorna false durante SSR para evitar mismatch de hidratação
+    if (!mounted) return false;
     return isMobile;
 };
 

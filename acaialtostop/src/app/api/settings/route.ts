@@ -76,7 +76,8 @@ const settingsSchema = new mongoose.Schema({
     cnpj: { type: String, default: "53.378.172/0001-60" },
     browserTitle: { type: String, default: "Do'Cheff - Cardápio Digital" },
     logoUrl: { type: String, default: "/logo.jpg" },
-    whatsappNumber: { type: String, default: "" }
+    whatsappNumber: { type: String, default: "" },
+    printnodeApiKey: { type: String, default: "" }
 });
 
 const Settings = mongoose.models.Settings || mongoose.model('Settings', settingsSchema);
@@ -88,10 +89,17 @@ function isCurrentlyOpen(businessHours: any): boolean {
 export async function GET() {
     try {
         await connectDB();
-        const settings = await Settings.findOne() || await Settings.create({});
+        let settings = await Settings.findOne();
+        if (!settings) {
+            settings = await Settings.create({});
+        }
         const isOpen = isCurrentlyOpen(settings.businessHours);
         const settingsData = settings.toObject();
         settingsData.isOpen = isOpen;
+        // Garante que printnodeApiKey seja sempre retornado (mesmo que vazio)
+        if (settingsData.printnodeApiKey === undefined || settingsData.printnodeApiKey === null) {
+            settingsData.printnodeApiKey = '';
+        }
         return NextResponse.json({ success: true, data: settingsData });
     } catch (error) {
         console.error('Erro ao buscar configurações:', error);
@@ -110,19 +118,38 @@ export async function POST(request: Request) {
             settings = new Settings();
         }
 
+        // Prepara objeto de atualização com todos os campos
+        const updateData: any = {
+            ...body,
+            lastUpdated: new Date()
+        };
+
         // Atualiza todos os campos do corpo da requisição
         Object.keys(body).forEach(key => {
-            settings[key] = body[key];
+            if (body[key] !== undefined) {
+                settings.set(key, body[key]);
+            }
         });
         
         // CORREÇÃO: Garante que o Mongoose saiba que o array de taxas foi modificado
         settings.markModified('deliveryFees');
+        settings.markModified('businessHours');
+        
+        // Garante que campos importantes sejam salvos explicitamente usando set
+        if (body.printnodeApiKey !== undefined) {
+            settings.set('printnodeApiKey', body.printnodeApiKey);
+        }
 
-        settings.lastUpdated = new Date();
+        settings.set('lastUpdated', new Date());
 
         const updatedSettings = await settings.save();
 
-        return NextResponse.json({ success: true, data: updatedSettings });
+        // Retorna os dados atualizados incluindo printnodeApiKey (mas não expõe o valor completo por segurança)
+        const responseData = updatedSettings.toObject();
+        // Mantém a chave no retorno para o frontend poder verificar se foi salva
+        // (mas em produção você pode querer mascarar parte dela)
+
+        return NextResponse.json({ success: true, data: responseData });
     } catch (error) {
         console.error('Erro ao atualizar configurações:', error);
         const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';

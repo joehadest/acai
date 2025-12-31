@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaShareAlt, FaVolumeUp, FaVolumeMute } from 'react-icons/fa'; // Ícones de volume
+import { FaShareAlt, FaVolumeUp, FaVolumeMute, FaPrint } from 'react-icons/fa'; // Ícones de volume e impressão
 // Removidos jsPDF e html2canvas (não utilizados)
 import NotificationComponent from './Notification';
 import { Pedido } from '../types/cart';
@@ -88,6 +88,9 @@ export default function AdminOrders() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const modalRef = useRef<HTMLDivElement | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [printnodePrinters, setPrintnodePrinters] = useState<any[]>([]);
+    const [showPrinterSelect, setShowPrinterSelect] = useState(false);
+    const [pedidoParaImprimir, setPedidoParaImprimir] = useState<Pedido | null>(null);
 
     const toggleGlobalSound = () => {
         const newState = !globalSoundEnabled;
@@ -222,6 +225,140 @@ export default function AdminOrders() {
             });
         } else {
             alert('Compartilhamento não suportado neste navegador.');
+        }
+    };
+
+    const carregarPrintersPrintNode = async () => {
+        try {
+            const response = await fetch('/api/pedidos/printnode?action=printers');
+            const data = await response.json();
+            if (data.success) {
+                setPrintnodePrinters(data.data || []);
+                return data.data || [];
+            }
+            return [];
+        } catch (error) {
+            console.error('Erro ao carregar impressoras PrintNode:', error);
+            return [];
+        }
+    };
+
+    const handleImprimirPOS = async (pedido: Pedido) => {
+        try {
+            setMensagem('Verificando opções de impressão...');
+            
+            // Primeiro, tentar carregar impressoras PrintNode
+            const printers = await carregarPrintersPrintNode();
+            
+            if (printers.length > 0) {
+                // Se houver impressoras PrintNode configuradas, mostrar seletor
+                setPrintnodePrinters(printers);
+                setPedidoParaImprimir(pedido);
+                setShowPrinterSelect(true);
+                return;
+            }
+
+            // Se não houver PrintNode, tentar WebUSB
+            if ('usb' in navigator) {
+                try {
+                    setMensagem('Conectando à impressora USB...');
+                    
+                    // Buscar comandos ESC/POS da API
+                    const response = await fetch(`/api/pedidos/pos?id=${pedido._id}&format=base64`);
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        throw new Error(data.message || 'Erro ao gerar comandos de impressão');
+                    }
+
+                    // Solicitar acesso à impressora USB
+                    const device = await (navigator as any).usb.requestDevice({
+                        filters: [
+                            { classCode: 7 }, // Printer class
+                        ]
+                    });
+
+                    await (navigator as any).usb.openDevice(device);
+                    await (navigator as any).usb.selectConfiguration(device, 1);
+                    await (navigator as any).usb.claimInterface(device, 0);
+
+                    // Converter base64 para Uint8Array
+                    const binaryData = Uint8Array.from(atob(data.data), c => c.charCodeAt(0));
+
+                    // Enviar dados para a impressora
+                    await (navigator as any).usb.transferOut(device, 1, binaryData);
+
+                    setMensagem('Pedido impresso com sucesso na impressora POS!');
+                    setTimeout(() => setMensagem(null), 3000);
+                    return;
+                } catch (usbError: any) {
+                    console.log('WebUSB não disponível ou erro:', usbError);
+                    // Continuar com método alternativo
+                }
+            }
+
+            // Método alternativo: Download do arquivo para impressão manual
+            setMensagem('Gerando arquivo de impressão...');
+            const response = await fetch(`/api/pedidos/pos?id=${pedido._id}&format=base64`);
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.message || 'Erro ao gerar comandos de impressão');
+            }
+
+            const binaryData = Uint8Array.from(atob(data.data), c => c.charCodeAt(0));
+            const blob = new Blob([binaryData], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pedido_${pedido._id.slice(-6)}.bin`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            setMensagem('Arquivo de impressão baixado. Use um software de impressão POS para imprimir.');
+            setTimeout(() => setMensagem(null), 5000);
+
+        } catch (error: any) {
+            console.error('Erro ao imprimir:', error);
+            setMensagem(`Erro ao imprimir: ${error.message || 'Erro desconhecido'}`);
+            setTimeout(() => setMensagem(null), 5000);
+        }
+    };
+
+    const handleImprimirComPrintNode = async (printerId: string) => {
+        if (!pedidoParaImprimir) return;
+
+        try {
+            setMensagem('Enviando para impressora...');
+            setShowPrinterSelect(false);
+
+            const response = await fetch('/api/pedidos/printnode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    pedidoId: pedidoParaImprimir._id,
+                    printerId: printerId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                setMensagem('Pedido enviado para impressão com sucesso via PrintNode!');
+                setTimeout(() => setMensagem(null), 3000);
+            } else {
+                throw new Error(data.message || 'Erro ao imprimir via PrintNode');
+            }
+        } catch (error: any) {
+            console.error('Erro ao imprimir via PrintNode:', error);
+            setMensagem(`Erro: ${error.message || 'Erro ao imprimir via PrintNode'}`);
+            setTimeout(() => setMensagem(null), 5000);
+        } finally {
+            setPedidoParaImprimir(null);
         }
     };
 
@@ -482,11 +619,18 @@ export default function AdminOrders() {
                                 Ver Detalhes
                             </button>
                             <button
+                                className="flex-1 bg-green-600 text-white font-mono text-xs sm:text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-green-700 hover:shadow-md flex items-center justify-center gap-2"
+                                onClick={() => handleImprimirPOS(pedido)}
+                            >
+                                <FaPrint className="w-3 h-3 sm:w-4 sm:h-4" />
+                                Imprimir POS
+                            </button>
+                            <button
                                 className="flex-1 bg-white border-2 border-gray-800 text-gray-900 font-mono text-xs sm:text-sm py-2 px-3 rounded transition-all duration-200 hover:bg-gray-50 hover:shadow-md flex items-center justify-center gap-2"
                                 onClick={() => handleCompartilharPedido(pedido)}
                             >
                                 <FaShareAlt className="w-3 h-3 sm:w-4 sm:h-4" />
-                                Imprimir
+                                Compartilhar
                             </button>
                             <button
                                 className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded font-semibold hover:bg-red-600 transition-colors text-sm sm:text-base"
@@ -618,6 +762,13 @@ export default function AdminOrders() {
                                             )}
                                         </button>
                                     )}
+                                    <button
+                                        onClick={() => handleImprimirPOS(p)}
+                                        className="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-colors flex items-center gap-2"
+                                    >
+                                        <FaPrint className="w-4 h-4" />
+                                        Imprimir POS
+                                    </button>
                                     <button
                                         onClick={() => handleCompartilharPedido(p)}
                                         className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
@@ -827,6 +978,121 @@ export default function AdminOrders() {
                             </div>
                         </div>
                         </> ); })()}
+                        </motion.div>
+                    </motion.div>
+                </AnimatePresence>,
+                document.body
+            )}
+
+            {/* Modal de seleção de impressora PrintNode */}
+            {mounted && showPrinterSelect && createPortal(
+                <AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+                        onClick={() => {
+                            setShowPrinterSelect(false);
+                            setPedidoParaImprimir(null);
+                        }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h3 className="text-xl font-bold text-gray-900 mb-4">Selecione a Impressora</h3>
+                            
+                            {printnodePrinters.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <p className="text-gray-600 mb-4">Nenhuma impressora PrintNode encontrada.</p>
+                                    <p className="text-sm text-gray-500 mb-4">
+                                        Configure sua API Key do PrintNode nas configurações do admin.
+                                    </p>
+                                    <button
+                                        onClick={() => {
+                                            setShowPrinterSelect(false);
+                                            setPedidoParaImprimir(null);
+                                        }}
+                                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                                    >
+                                        Fechar
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                    {printnodePrinters.map((printer) => {
+                                        // PrintNode pode retornar diferentes estados: 'online', 'offline', 'unknown', etc.
+                                        // Impressoras térmicas POS muitas vezes aparecem como 'offline' mas ainda funcionam
+                                        // Por isso, permitimos tentar imprimir mesmo quando está 'offline'
+                                        const isOnline = printer.state === 'online' || printer.state === 'active';
+                                        // Permite imprimir mesmo offline - impressoras térmicas geralmente funcionam mesmo assim
+                                        const canPrint = isOnline || printer.state === 'unknown' || !printer.state || printer.state === 'offline';
+                                        
+                                        return (
+                                            <button
+                                                key={printer.id}
+                                                onClick={() => handleImprimirComPrintNode(printer.id.toString())}
+                                                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                                                    isOnline
+                                                        ? 'border-green-300 bg-green-50 hover:bg-green-100'
+                                                        : canPrint
+                                                        ? 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100'
+                                                        : 'border-gray-300 bg-gray-50 hover:bg-gray-100 opacity-60'
+                                                }`}
+                                                disabled={!canPrint}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <div className="font-semibold text-gray-900">{printer.name}</div>
+                                                        {printer.description && (
+                                                            <div className="text-sm text-gray-600">{printer.description}</div>
+                                                        )}
+                                                        {!isOnline && canPrint && (
+                                                            <div className="text-xs text-yellow-700 mt-1">
+                                                                ⚠️ Status: {printer.state || 'desconhecido'} - Impressoras térmicas POS geralmente funcionam mesmo offline. Pode tentar imprimir!
+                                                            </div>
+                                                        )}
+                                                        {!canPrint && (
+                                                            <div className="text-xs text-red-700 mt-1">
+                                                                ❌ Status: {printer.state || 'offline'} - Impressora indisponível
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span
+                                                            className={`w-3 h-3 rounded-full ${
+                                                                isOnline ? 'bg-green-500' : canPrint ? 'bg-yellow-500' : 'bg-red-500'
+                                                            }`}
+                                                            title={isOnline ? 'Online' : canPrint ? 'Pode tentar imprimir' : 'Indisponível'}
+                                                        ></span>
+                                                        {printer.default && (
+                                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                                                Padrão
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            
+                            <div className="mt-4 flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setShowPrinterSelect(false);
+                                        setPedidoParaImprimir(null);
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
                         </motion.div>
                     </motion.div>
                 </AnimatePresence>,

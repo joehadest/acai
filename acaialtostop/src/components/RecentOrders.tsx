@@ -107,7 +107,7 @@ export default function RecentOrders() {
   const [mensagemCompartilhamento, setMensagemCompartilhamento] = useState<string | null>(null);
   const [searchFilter, setSearchFilter] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdate, setLastUpdate] = useState<number>(Date.now());
+  const [lastUpdate, setLastUpdate] = useState<number>(0);
   const [statusUpdateCount, setStatusUpdateCount] = useState<Record<string, number>>(() => {
     if (typeof window !== 'undefined') {
       const savedCounts = localStorage.getItem('statusUpdateCounts');

@@ -43,6 +43,7 @@ export default function AdminSettings() {
     const [browserTitle, setBrowserTitle] = useState('');
     const [logoUrl, setLogoUrl] = useState('/logo.jpg');
     const [whatsappNumber, setWhatsappNumber] = useState('');
+    const [printnodeApiKey, setPrintnodeApiKey] = useState('');
 
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -91,6 +92,7 @@ export default function AdminSettings() {
                     setBrowserTitle(data.data.browserTitle || '');
                     setLogoUrl(data.data.logoUrl || '/logo.jpg');
                     setWhatsappNumber(data.data.whatsappNumber || '');
+                    setPrintnodeApiKey(data.data.printnodeApiKey || '');
                 }
             } catch (e) {
                 if (mounted) {
@@ -126,7 +128,7 @@ export default function AdminSettings() {
     const handleSave = async () => {
         setIsSaving(true); setSaveMessage('');
         try {
-            const res = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ businessHours, deliveryFees, allowHalfAndHalf, menuTitle, menuSubtitle, restaurantName, restaurantSubtitle, addressStreet, addressNumber, addressCity, contactPhone, paymentMethods, socialMediaInstagram, cnpj, browserTitle, logoUrl, whatsappNumber }) });
+            const res = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ businessHours, deliveryFees, allowHalfAndHalf, menuTitle, menuSubtitle, restaurantName, restaurantSubtitle, addressStreet, addressNumber, addressCity, contactPhone, paymentMethods, socialMediaInstagram, cnpj, browserTitle, logoUrl, whatsappNumber, printnodeApiKey }) });
             const data = await res.json();
             if (data.success) { setSaveMessage('Alterações salvas!'); setIsEditing(false); setIsOpen(checkOpenStatus()); }
             else setSaveMessage('Erro ao salvar.');
@@ -205,6 +207,30 @@ export default function AdminSettings() {
                                 <input type="text" value={socialMediaInstagram} onChange={e=>setSocialMediaInstagram(e.target.value)} placeholder="Instagram" className="form-input bg-white text-gray-900 text-sm sm:text-base" />
                                 <input type="text" value={cnpj} onChange={e=>setCnpj(e.target.value)} placeholder="CNPJ" className="form-input bg-white text-gray-900 text-sm sm:text-base" />
                                 <input type="text" value={whatsappNumber} onChange={e=>setWhatsappNumber(e.target.value)} placeholder="Número do WhatsApp para receber pedidos" className="form-input bg-white text-gray-900 text-sm sm:text-base sm:col-span-2" />
+                            </div>
+                        </div>
+                        <div className="p-4 sm:p-6 bg-white border border-gray-200 rounded-lg shadow-sm lg:col-span-2">
+                            <h2 className="text-lg sm:text-xl font-semibold mb-4 text-gray-800">Configurações de Impressão (PrintNode)</h2>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        PrintNode API Key
+                                        <span className="text-xs text-gray-500 ml-2">(Opcional - para impressão em nuvem)</span>
+                                    </label>
+                                    <input 
+                                        type="password" 
+                                        value={printnodeApiKey} 
+                                        onChange={e=>setPrintnodeApiKey(e.target.value)} 
+                                        placeholder="Cole sua API Key do PrintNode aqui" 
+                                        className="form-input bg-white text-gray-900 text-sm sm:text-base w-full" 
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        Obtenha sua API Key em: <a href="https://app.printnode.com" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">app.printnode.com</a>
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Consulte o guia completo em: <a href="/md/PRINTNODE_SETUP.md" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">PRINTNODE_SETUP.md</a>
+                                    </p>
+                                </div>
                             </div>
                         </div>
                         <div className="p-4 sm:p-6 bg-white border border-gray-200 rounded-lg shadow-sm lg:col-span-2">

@@ -1,0 +1,47 @@
+🖨️ CONFIGURAÇÃO DA IMPRESSORA - GUIA RÁPIDO
+
+Olá! Para configurar sua impressora Knup POS, você precisa instalar um programa gratuito chamado PrintNode.
+
+📋 PASSO A PASSO:
+
+1️⃣ BAIXAR O PROGRAMA
+   • Acesse: printnode.com/download
+   • Baixe e instale no computador onde a impressora está conectada
+   • Deixe o programa rodando (você verá um ícone na bandeja do sistema)
+
+2️⃣ CRIAR CONTA GRATUITA
+   • Acesse: printnode.com
+   • Clique em "Sign Up" e crie sua conta
+   • Confirme o email
+
+3️⃣ CONECTAR A IMPRESSORA
+   • Conecte sua impressora Knup POS no computador via USB
+   • Ligue a impressora
+   • O PrintNode detecta automaticamente
+
+4️⃣ PEGAR A CHAVE DE ACESSO
+   • Acesse: app.printnode.com
+   • Faça login
+   • Vá em: Account → API Credentials
+   • Clique em "Create API Key"
+   • COPIE A CHAVE COMPLETA (ela é longa!)
+
+5️⃣ CONFIGURAR NO SISTEMA
+   • No painel admin, vá em "Configurações"
+   • Role até "Configurações de Impressão (PrintNode)"
+   • Cole a chave no campo "PrintNode API Key"
+   • Clique em "Salvar Alterações"
+
+✅ PRONTO! Agora é só clicar em "Imprimir POS" nos pedidos que a impressora imprime automaticamente!
+
+⚠️ IMPORTANTE:
+• O PrintNode precisa estar RODANDO no computador sempre
+• A impressora precisa estar LIGADA e CONECTADA
+• Mantenha o programa aberto
+
+❓ PROBLEMAS?
+• Impressora não aparece? Verifique se está ligada e se o PrintNode está rodando
+• Chave não funciona? Copie a chave completa e salve novamente
+
+Precisa de ajuda? Entre em contato!
+

@@ -16,6 +16,7 @@ export default function Header() {
     const [loading, setLoading] = useState(true);
     const [settings, setSettings] = useState<any>({});
     const [mounted, setMounted] = useState(false);
+    const [currentDay, setCurrentDay] = useState<string>('');
 
     const checkOpenStatus = useCallback(() => {
         if (!businessHours) return false;
@@ -61,7 +62,11 @@ export default function Header() {
         return () => clearInterval(interval);
     }, [businessHours, checkOpenStatus]);
 
-    useEffect(() => { setMounted(true); }, []);
+    useEffect(() => { 
+        setMounted(true);
+        // Calcular o dia atual apenas no cliente para evitar mismatch de hidratação
+        setCurrentDay(new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase());
+    }, []);
 
     const renderBusinessHours = () => {
         if (!businessHours) {
@@ -78,7 +83,7 @@ export default function Header() {
         return daysOrder.map(day => {
             const schedule = businessHours[day];
             const hoursString = schedule && schedule.open ? `${schedule.start} às ${schedule.end}` : 'Fechado';
-            const isToday = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() === day;
+            const isToday = mounted && currentDay === day;
 
             return (
                 <div key={day} className={`flex justify-between items-center text-sm ${isToday ? 'font-bold text-purple-700' : 'text-gray-600'}`}>
